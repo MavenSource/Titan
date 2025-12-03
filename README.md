@@ -186,7 +186,7 @@ The Titan system follows a modular, event-driven architecture with three primary
 - **NumPy**: Numerical computations
 - **Pandas**: Data manipulation and analysis
 - **rustworkx**: Graph theory and pathfinding
-- **scikit-learn**: Machine learning algorithms (implied)
+- **Custom ML Implementations**: Machine learning algorithms built in-house
 
 ### DeFi Protocols
 - **Balancer V3**: Primary flash loan provider
@@ -1830,7 +1830,7 @@ This project is licensed under the **MIT License**.
 ```
 MIT License
 
-Copyright (c) 2024 MavenSource
+Copyright (c) 2025 MavenSource
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
