@@ -162,3 +162,68 @@ DEX_ROUTERS = {
         "SUSHI": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",  # SushiSwap Router on Arbitrum
     }
 }
+
+# ======================================================================
+# LIFI BRIDGE CONFIGURATION - Intent-Based Cross-Chain Bridging
+# ======================================================================
+
+# Li.Fi supported chains (verified for intent-based bridging)
+LIFI_SUPPORTED_CHAINS = [1, 137, 42161, 10, 8453, 56, 43114, 250, 59144, 534352, 5000, 324, 81457, 42220, 204]
+
+# Intent-based bridge protocols (fast settlement via solvers)
+INTENT_BASED_BRIDGES = {
+    'across': {
+        'name': 'Across Protocol',
+        'typical_time_seconds': 30,  # 30 seconds average
+        'max_time_seconds': 180,     # 3 minutes max
+        'fee_range_bps': [5, 30],    # 0.05% - 0.30% fee
+        'description': 'Fastest intent-based bridge using solver network'
+    },
+    'stargate': {
+        'name': 'Stargate Finance',
+        'typical_time_seconds': 60,  # 1 minute average
+        'max_time_seconds': 300,     # 5 minutes max
+        'fee_range_bps': [6, 50],    # 0.06% - 0.50% fee
+        'description': 'Fast and reliable LayerZero-based bridge'
+    },
+    'hop': {
+        'name': 'Hop Protocol',
+        'typical_time_seconds': 120,  # 2 minutes average
+        'max_time_seconds': 600,      # 10 minutes max
+        'fee_range_bps': [10, 100],   # 0.10% - 1.00% fee (dynamic based on liquidity)
+        'description': 'Popular bridge with good liquidity'
+    }
+}
+
+# Traditional bridges (slower, validator-based)
+TRADITIONAL_BRIDGES = {
+    'synapse': {
+        'name': 'Synapse Protocol',
+        'typical_time_seconds': 900,   # 15 minutes
+        'max_time_seconds': 1800,      # 30 minutes
+        'fee_range_bps': [5, 20]
+    },
+    'cbridge': {
+        'name': 'Celer cBridge',
+        'typical_time_seconds': 1200,  # 20 minutes
+        'max_time_seconds': 3600,      # 60 minutes
+        'fee_range_bps': [10, 30]
+    },
+    'multichain': {
+        'name': 'Multichain (Anyswap)',
+        'typical_time_seconds': 600,   # 10 minutes
+        'max_time_seconds': 1800,      # 30 minutes
+        'fee_range_bps': [10, 50]
+    }
+}
+
+# Bridge priority for arbitrage (prefer intent-based for speed)
+BRIDGE_PRIORITY_FOR_ARBITRAGE = ['across', 'stargate', 'hop', 'synapse', 'cbridge', 'multichain']
+
+# Maximum trade size per chain for intent-based bridges (USD)
+# Larger trades may face liquidity constraints from solvers
+MAX_INTENT_BASED_TRADE_SIZE = {
+    'across': 100000,    # $100k max per trade
+    'stargate': 250000,  # $250k max per trade
+    'hop': 50000         # $50k max per trade
+}
