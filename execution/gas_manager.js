@@ -30,7 +30,9 @@ class GasManager {
             CURVE_SWAP: 90000,                // Curve stable swap
             BALANCER_SWAP: 100000,            // Balancer V2 swap
             PARASWAP: 180000,                 // ParaSwap aggregator
-            REPAYMENT: 100000                 // Flash loan repayment
+            REPAYMENT: 100000,                // Flash loan repayment
+            COMPLEXITY_BUFFER: 50000,         // Extra buffer for complex routes (3+ hops)
+            MAX_FALLBACK_GAS: 800000          // Maximum conservative estimate
         };
     }
     
@@ -174,7 +176,7 @@ class GasManager {
         if (!routeInfo || !routeInfo.protocols) {
             // No route info - use maximum conservative estimate
             console.warn('⚠️ No route info provided, using maximum estimate');
-            return BigInt(800000); // Maximum for complex multi-hop
+            return BigInt(this.GAS_COSTS.MAX_FALLBACK_GAS);
         }
         
         // Add gas for each protocol in the route
@@ -212,9 +214,8 @@ class GasManager {
         
         // Add extra buffer for complex routes (3+ hops)
         if (protocols.length >= 3) {
-            const complexityBuffer = 50000;
-            totalGas += complexityBuffer;
-            console.log(`   Added complexity buffer: +${complexityBuffer} gas`);
+            totalGas += this.GAS_COSTS.COMPLEXITY_BUFFER;
+            console.log(`   Added complexity buffer: +${this.GAS_COSTS.COMPLEXITY_BUFFER} gas`);
         }
         
         console.log(`   Base gas: ${totalGas}`);
