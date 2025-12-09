@@ -14,8 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Core Infrastructure
 from core.config import CHAINS, BALANCER_V3_VAULT, DEX_ROUTERS, DEFAULT_CHAIN_ID, DEFAULT_CHAIN_NAME
 from core.token_discovery import TokenDiscovery
-from routing.bridge_manager import BridgeManager
-from core.titan_commander_core import TitanCommander
+from routing.bridge_aggregator import BridgeAggregator
 from execution.execution_client import ExecutionManager
 
 # The Cortex (AI Layer)
@@ -66,7 +65,7 @@ class OmniBrain:
     def __init__(self):
         # 1. Infrastructure
         self.graph = rx.PyDiGraph()
-        self.bridge = BridgeManager()
+        self.bridge = BridgeAggregator()
         self.profit_engine = ProfitEngine()
         self.inventory = {} 
         self.web3_connections = {}

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Titan Real-Time Monitoring Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e27;
+            color: #e0e6ed;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%);
+            padding: 20px 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-healthy {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status-degraded {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .status-error {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .mode-badge {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-left: 20px;
+        }
+        
+        .mode-paper {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .mode-live {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 30px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
+        }
+        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .metric {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .metric-small {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        
+        .metric-positive {
+            color: #10b981;
+        }
+        
+        .metric-negative {
+            color: #ef4444;
+        }
+        
+        .metric-neutral {
+            color: #3b82f6;
+        }
+        
+        .chain-list {
+            display: grid;
+            gap: 12px;
+        }
+        
+        .chain-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #0f172a;
+            border-radius: 8px;
+            border-left: 4px solid transparent;
+        }
+        
+        .chain-item.connected {
+            border-left-color: #10b981;
+        }
+        
+        .chain-item.disconnected {
+            border-left-color: #ef4444;
+        }
+        
+        .chain-name {
+            font-weight: 600;
+        }
+        
+        .chain-info {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        
+        .log-container {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .log-entry {
+            padding: 8px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        
+        .log-time {
+            color: #64748b;
+            min-width: 80px;
+        }
+        
+        .log-type {
+            min-width: 120px;
+            font-weight: 600;
+        }
+        
+        .log-detected {
+            color: #3b82f6;
+        }
+        
+        .log-executed {
+            color: #10b981;
+        }
+        
+        .log-failed {
+            color: #ef4444;
+        }
+        
+        .log-error {
+            color: #f59e0b;
+        }
+        
+        .trade-item {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 4px solid transparent;
+        }
+        
+        .trade-item.detected {
+            border-left-color: #3b82f6;
+        }
+        
+        .trade-item.executed {
+            border-left-color: #10b981;
+        }
+        
+        .trade-item.failed {
+            border-left-color: #ef4444;
+        }
+        
+        .trade-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .trade-details {
+            font-size: 12px;
+            color: #94a3b8;
+            display: grid;
+            gap: 4px;
+        }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .connection-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .connected-dot {
+            background: #10b981;
+        }
+        
+        .disconnected-dot {
+            background: #ef4444;
+        }
+        
+        .wide-card {
+            grid-column: 1 / -1;
+        }
+        
+        .scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        
+        .scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        
+        .scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>
+            🔍 Titan Real-Time Monitoring
+            <span id="statusBadge" class="status-badge status-healthy">Connecting...</span>
+        </h1>
+        <div style="display: flex; align-items: center;">
+            <span id="modeBadge" class="mode-badge mode-paper">PAPER MODE</span>
+            <div class="connection-status" style="margin-left: 20px;">
+                <div id="connectionDot" class="connection-dot disconnected-dot pulse"></div>
+                <span id="connectionText">Connecting...</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Key Metrics -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">Uptime</div>
+                <div class="metric metric-neutral" id="uptime">0s</div>
+                <div class="metric-small">System Online</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">Total Profit</div>
+                <div class="metric metric-positive" id="totalProfit">$0.00</div>
+                <div class="metric-small" id="profitMode">Paper Trading</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">Opportunities Detected</div>
+                <div class="metric metric-neutral" id="oppDetected">0</div>
+                <div class="metric-small" id="oppRate">0.00 per second</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">Trades Executed</div>
+                <div class="metric metric-positive" id="tradesExecuted">0</div>
+                <div class="metric-small" id="successRate">0% success rate</div>
+            </div>
+        </div>
+        
+        <!-- Performance Metrics -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">Avg Scan Time</div>
+                <div class="metric" id="avgScanTime">0ms</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">Avg Simulation Time</div>
+                <div class="metric" id="avgSimTime">0ms</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">Avg Execution Time</div>
+                <div class="metric" id="avgExecTime">0ms</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">Active Connections</div>
+                <div class="metric" id="activeConnections">0</div>
+            </div>
+        </div>
+        
+        <!-- Chain Status -->
+        <div class="grid">
+            <div class="card wide-card">
+                <div class="card-title">Blockchain Network Status</div>
+                <div id="chainList" class="chain-list">
+                    <div style="text-align: center; padding: 40px; color: #64748b;">
+                        Waiting for chain data...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Live Activity -->
+        <div class="grid">
+            <div class="card wide-card">
+                <div class="card-title">Live Activity Stream</div>
+                <div id="activityLog" class="log-container scrollbar">
+                    <div style="text-align: center; padding: 40px; color: #64748b;">
+                        Waiting for activity...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Trades -->
+        <div class="grid">
+            <div class="card wide-card">
+                <div class="card-title">Recent Trades (Last 20)</div>
+                <div id="recentTrades" class="scrollbar" style="max-height: 500px; overflow-y: auto;">
+                    <div style="text-align: center; padding: 40px; color: #64748b;">
+                        No trades yet...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error Log -->
+        <div class="grid">
+            <div class="card wide-card">
+                <div class="card-title">Error Log (Last 10)</div>
+                <div id="errorLog" class="log-container scrollbar">
+                    <div style="text-align: center; padding: 40px; color: #64748b;">
+                        No errors logged
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // WebSocket connection
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}`);
+        
+        const chainNames = {
+            1: 'Ethereum',
+            137: 'Polygon',
+            42161: 'Arbitrum',
+            10: 'Optimism',
+            8453: 'Base',
+            56: 'BSC',
+            43114: 'Avalanche',
+            250: 'Fantom',
+            59144: 'Linea',
+            534352: 'Scroll',
+            5000: 'Mantle',
+            324: 'ZKsync',
+            81457: 'Blast',
+            42220: 'Celo',
+            204: 'opBNB'
+        };
+        
+        let state = {
+            chains: {},
+            opportunities: { detected: 0, executed: 0, failed: 0, rejected: 0 },
+            profits: { total: 0 },
+            performance: { avgScanTime: 0, avgSimulationTime: 0, avgExecutionTime: 0 },
+            recentTrades: [],
+            errors: [],
+            mode: 'paper'
+        };
+        
+        ws.onopen = () => {
+            document.getElementById('connectionDot').className = 'connection-dot connected-dot';
+            document.getElementById('connectionText').textContent = 'Connected';
+            console.log('✅ Connected to monitoring server');
+        };
+        
+        ws.onclose = () => {
+            document.getElementById('connectionDot').className = 'connection-dot disconnected-dot pulse';
+            document.getElementById('connectionText').textContent = 'Disconnected';
+            console.log('❌ Disconnected from monitoring server');
+        };
+        
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+        
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            
+            switch (message.type) {
+                case 'INITIAL_STATE':
+                    state = message.data;
+                    updateDashboard();
+                    break;
+                    
+                case 'OPPORTUNITY_DETECTED':
+                    addActivityLog('Opportunity Detected', message.data, 'detected');
+                    state.opportunities.detected++;
+                    updateMetrics();
+                    break;
+                    
+                case 'EXECUTION_UPDATE':
+                    addActivityLog('Execution Update', message.data, message.data.status);
+                    if (message.data.status === 'executed') {
+                        state.opportunities.executed++;
+                        if (message.data.profit) {
+                            state.profits.total += message.data.profit;
+                        }
+                    } else if (message.data.status === 'failed') {
+                        state.opportunities.failed++;
+                    }
+                    updateMetrics();
+                    updateRecentTrades();
+                    break;
+                    
+                case 'CHAIN_UPDATE':
+                    // Chain updates handled in INITIAL_STATE
+                    break;
+                    
+                case 'ERROR_REPORT':
+                    addErrorLog(message.data);
+                    break;
+            }
+        };
+        
+        function updateDashboard() {
+            updateMetrics();
+            updateChains();
+            updateRecentTrades();
+            updateErrors();
+        }
+        
+        function updateMetrics() {
+            // Uptime
+            const uptime = Math.floor((Date.now() - (Date.now() - (state.uptime || 0))) / 1000);
+            document.getElementById('uptime').textContent = formatUptime(state.uptime || 0);
+            
+            // Total profit
+            document.getElementById('totalProfit').textContent = `$${state.profits.total.toFixed(2)}`;
+            document.getElementById('profitMode').textContent = state.mode === 'paper' ? 'Paper Trading' : 'Live Trading';
+            
+            // Mode badge
+            const modeBadge = document.getElementById('modeBadge');
+            modeBadge.textContent = `${state.mode.toUpperCase()} MODE`;
+            modeBadge.className = `mode-badge mode-${state.mode}`;
+            
+            // Opportunities
+            document.getElementById('oppDetected').textContent = state.opportunities.detected;
+            const scansPerSec = state.performance.scansPerSecond || 0;
+            document.getElementById('oppRate').textContent = `${scansPerSec.toFixed(2)} per second`;
+            
+            // Trades executed
+            document.getElementById('tradesExecuted').textContent = state.opportunities.executed;
+            const total = state.opportunities.executed + state.opportunities.failed;
+            const successRate = total > 0 ? ((state.opportunities.executed / total) * 100).toFixed(1) : 0;
+            document.getElementById('successRate').textContent = `${successRate}% success rate`;
+            
+            // Performance
+            document.getElementById('avgScanTime').textContent = `${state.performance.avgScanTime.toFixed(2)}ms`;
+            document.getElementById('avgSimTime').textContent = `${state.performance.avgSimulationTime.toFixed(2)}ms`;
+            document.getElementById('avgExecTime').textContent = `${state.performance.avgExecutionTime.toFixed(2)}ms`;
+            
+            // Active connections
+            document.getElementById('activeConnections').textContent = state.activeConnections || 0;
+        }
+        
+        function updateChains() {
+            const chainList = document.getElementById('chainList');
+            
+            if (Object.keys(state.chains).length === 0) {
+                chainList.innerHTML = '<div style="text-align: center; padding: 40px; color: #64748b;">No chain data available</div>';
+                return;
+            }
+            
+            chainList.innerHTML = Object.entries(state.chains)
+                .map(([chainId, chain]) => {
+                    const name = chainNames[chainId] || `Chain ${chainId}`;
+                    const status = chain.connected ? 'connected' : 'disconnected';
+                    const statusText = chain.connected ? '🟢 Online' : '🔴 Offline';
+                    const block = chain.blockNumber ? `Block: ${chain.blockNumber.toLocaleString()}` : 'Block: N/A';
+                    const gas = chain.gasPrice ? `Gas: ${(chain.gasPrice / 1e9).toFixed(2)} gwei` : 'Gas: N/A';
+                    
+                    return `
+                        <div class="chain-item ${status}">
+                            <div class="chain-name">${name}</div>
+                            <div class="chain-info">
+                                <span>${statusText}</span>
+                                <span>${block}</span>
+                                <span>${gas}</span>
+                            </div>
+                        </div>
+                    `;
+                })
+                .join('');
+        }
+        
+        function addActivityLog(type, data, status) {
+            const activityLog = document.getElementById('activityLog');
+            
+            // Remove placeholder
+            if (activityLog.children[0] && activityLog.children[0].textContent.includes('Waiting')) {
+                activityLog.innerHTML = '';
+            }
+            
+            const time = new Date().toLocaleTimeString();
+            const chainName = chainNames[data.chainId] || `Chain ${data.chainId}`;
+            const profit = data.profit || data.expectedProfit;
+            const profitText = profit ? `$${profit.toFixed(2)}` : 'N/A';
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">${time}</span>
+                <span class="log-type log-${status}">${type}</span>
+                <span>${chainName} | Profit: ${profitText}</span>
+            `;
+            
+            activityLog.insertBefore(entry, activityLog.firstChild);
+            
+            // Keep last 100 entries
+            while (activityLog.children.length > 100) {
+                activityLog.removeChild(activityLog.lastChild);
+            }
+        }
+        
+        function updateRecentTrades() {
+            const tradesContainer = document.getElementById('recentTrades');
+            
+            if (!state.recentTrades || state.recentTrades.length === 0) {
+                tradesContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #64748b;">No trades yet...</div>';
+                return;
+            }
+            
+            tradesContainer.innerHTML = state.recentTrades.slice(0, 20)
+                .map(trade => {
+                    const time = new Date(trade.timestamp).toLocaleTimeString();
+                    const chainName = chainNames[trade.data.chainId] || `Chain ${trade.data.chainId}`;
+                    const profit = trade.profit || trade.data.expectedProfit || 0;
+                    const status = trade.status || 'detected';
+                    
+                    return `
+                        <div class="trade-item ${status}">
+                            <div class="trade-header">
+                                <span>${chainName} | ${time}</span>
+                                <span class="${profit >= 0 ? 'metric-positive' : 'metric-negative'}">
+                                    $${profit.toFixed(2)}
+                                </span>
+                            </div>
+                            <div class="trade-details">
+                                <div>Status: ${status.toUpperCase()}</div>
+                                <div>Token: ${trade.data.token?.substring(0, 10)}...</div>
+                                ${trade.txHash ? `<div>TX: ${trade.txHash.substring(0, 16)}...</div>` : ''}
+                                ${trade.gasUsed ? `<div>Gas Used: ${trade.gasUsed.toLocaleString()}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                })
+                .join('');
+        }
+        
+        function addErrorLog(error) {
+            const errorLog = document.getElementById('errorLog');
+            
+            // Remove placeholder
+            if (errorLog.children[0] && errorLog.children[0].textContent.includes('No errors')) {
+                errorLog.innerHTML = '';
+            }
+            
+            const time = new Date(error.timestamp).toLocaleTimeString();
+            const chainName = error.chainId ? (chainNames[error.chainId] || `Chain ${error.chainId}`) : 'System';
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">${time}</span>
+                <span class="log-type log-error">${error.component || 'Error'}</span>
+                <span>${chainName} | ${error.message}</span>
+            `;
+            
+            errorLog.insertBefore(entry, errorLog.firstChild);
+            
+            // Keep last 50 entries
+            while (errorLog.children.length > 50) {
+                errorLog.removeChild(errorLog.lastChild);
+            }
+        }
+        
+        function updateErrors() {
+            const errorLog = document.getElementById('errorLog');
+            
+            if (!state.errors || state.errors.length === 0) {
+                errorLog.innerHTML = '<div style="text-align: center; padding: 40px; color: #64748b;">No errors logged</div>';
+                return;
+            }
+            
+            errorLog.innerHTML = state.errors.slice(0, 10)
+                .map(error => {
+                    const time = new Date(error.timestamp).toLocaleTimeString();
+                    const chainName = error.chainId ? (chainNames[error.chainId] || `Chain ${error.chainId}`) : 'System';
+                    
+                    return `
+                        <div class="log-entry">
+                            <span class="log-time">${time}</span>
+                            <span class="log-type log-error">${error.component || 'Error'}</span>
+                            <span>${chainName} | ${error.message}</span>
+                        </div>
+                    `;
+                })
+                .join('');
+        }
+        
+        function formatUptime(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (days > 0) return `${days}d ${hours % 24}h`;
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+            return `${seconds}s`;
+        }
+        
+        // Update uptime every second
+        setInterval(() => {
+            if (state.uptime) {
+                document.getElementById('uptime').textContent = formatUptime(state.uptime);
+            }
+        }, 1000);
+        
+        // Fetch initial data
+        fetch('/api/health')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('statusBadge').textContent = data.status.toUpperCase();
+                document.getElementById('statusBadge').className = `status-badge status-${data.status}`;
+            })
+            .catch(err => console.error('Failed to fetch health:', err));
+    </script>
+</body>
+</html>

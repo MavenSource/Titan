@@ -13,6 +13,7 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const { ethers } = require('ethers');
+const redis = require('redis');
 const { GasManager } = require('./gas_manager');
 const { BloxRouteManager } = require('./bloxroute_manager');
 const { OmniSDKEngine } = require('./omniarb_sdk_engine');
@@ -51,6 +52,10 @@ class ExecutionServer {
         this.wallets = {};
         this.activeClients = new Set();
         
+        // Redis client for metrics
+        this.redisClient = null;
+        this.initializeRedis();
+        
         // Execution statistics
         this.stats = {
             total_signals: 0,
@@ -65,6 +70,35 @@ class ExecutionServer {
         this.setupRoutes();
         this.setupWebSocket();
         this.initializeProviders();
+    }
+    
+    async initializeRedis() {
+        try {
+            this.redisClient = redis.createClient({
+                url: process.env.REDIS_URL || 'redis://localhost:6379'
+            });
+            
+            this.redisClient.on('error', (err) => {
+                console.error('❌ Redis error:', err.message);
+            });
+            
+            await this.redisClient.connect();
+            console.log('✅ Connected to Redis for metrics publishing');
+        } catch (error) {
+            console.warn('⚠️  Redis connection failed:', error.message);
+            console.warn('⚠️  Continuing without metrics publishing');
+            this.redisClient = null;
+        }
+    }
+    
+    publishMetric(channel, data) {
+        if (this.redisClient && this.redisClient.isOpen) {
+            try {
+                this.redisClient.publish(channel, JSON.stringify(data));
+            } catch (error) {
+                console.error('Failed to publish metric:', error.message);
+            }
+        }
     }
     
     setupMiddleware() {

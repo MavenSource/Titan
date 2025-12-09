@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TITAN LIVE OPERATIONS DASHBOARD</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0e27;
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1f3a 0%, #0f1629 100%);
+            padding: 20px;
+            border-bottom: 3px solid #00ff41;
+            box-shadow: 0 5px 20px rgba(0, 255, 65, 0.3);
+        }
+
+        .header h1 {
+            text-align: center;
+            font-size: 2.5em;
+            text-shadow: 0 0 20px #00ff41, 0 0 40px #00ff41;
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { text-shadow: 0 0 20px #00ff41, 0 0 40px #00ff41; }
+            50% { text-shadow: 0 0 30px #00ff41, 0 0 60px #00ff41, 0 0 80px #00ff41; }
+        }
+
+        .status-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background: #0f1629;
+        }
+
+        .status-card {
+            background: linear-gradient(135deg, #1a1f3a 0%, #0f1629 100%);
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 5px 15px rgba(0, 255, 65, 0.2);
+            transition: all 0.3s;
+        }
+
+        .status-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 255, 65, 0.4);
+        }
+
+        .status-card h3 {
+            font-size: 0.9em;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .status-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #00ff41;
+        }
+
+        .status-card.warning .value {
+            color: #ffaa00;
+        }
+
+        .status-card.error .value {
+            color: #ff0044;
+        }
+
+        .status-card.live .value {
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .panel {
+            background: #0f1629;
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 255, 65, 0.2);
+        }
+
+        .panel h2 {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #00ff41;
+        }
+
+        .log-container {
+            height: 500px;
+            overflow-y: auto;
+            background: #000;
+            border: 1px solid #00ff41;
+            border-radius: 5px;
+            padding: 10px;
+            font-size: 0.9em;
+        }
+
+        .log-entry {
+            padding: 5px;
+            margin: 3px 0;
+            border-left: 3px solid transparent;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .log-entry.info { border-left-color: #00ff41; color: #00ff41; }
+        .log-entry.success { border-left-color: #00ffaa; color: #00ffaa; }
+        .log-entry.warning { border-left-color: #ffaa00; color: #ffaa00; }
+        .log-entry.error { border-left-color: #ff0044; color: #ff0044; }
+        .log-entry.trade { 
+            border-left-color: #00aaff; 
+            color: #00aaff; 
+            background: rgba(0, 170, 255, 0.1);
+            font-weight: bold;
+        }
+
+        .chain-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .chain-card {
+            background: #1a1f3a;
+            border: 1px solid #00ff41;
+            border-radius: 5px;
+            padding: 10px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .chain-card:hover {
+            background: #252a45;
+            transform: scale(1.05);
+        }
+
+        .chain-card .name {
+            font-size: 0.9em;
+            color: #888;
+        }
+
+        .chain-card .status {
+            font-size: 1.5em;
+            margin: 5px 0;
+        }
+
+        .chain-card.active .status {
+            color: #00ff41;
+        }
+
+        .chain-card.scanning .status {
+            animation: scan 1s ease-in-out infinite;
+        }
+
+        @keyframes scan {
+            0%, 100% { color: #00ff41; }
+            50% { color: #00ffaa; }
+        }
+
+        .opportunity-card {
+            background: linear-gradient(135deg, #1a3a1a 0%, #0f290f 100%);
+            border: 2px solid #00ff41;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            animation: opportunityPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes opportunityPulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(0, 255, 65, 0.3); }
+            50% { box-shadow: 0 0 20px rgba(0, 255, 65, 0.6), 0 0 30px rgba(0, 255, 65, 0.4); }
+        }
+
+        .opportunity-card .profit {
+            font-size: 2em;
+            color: #00ff41;
+            font-weight: bold;
+        }
+
+        .opportunity-card .route {
+            color: #888;
+            margin-top: 10px;
+        }
+
+        .graph-container {
+            height: 300px;
+            background: #000;
+            border: 1px solid #00ff41;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        .live-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #ff0044;
+            border-radius: 50%;
+            animation: blink 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .timestamp {
+            color: #555;
+            font-size: 0.8em;
+        }
+
+        .metric-bar {
+            background: #1a1f3a;
+            border-radius: 5px;
+            height: 25px;
+            margin: 10px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-bar-fill {
+            background: linear-gradient(90deg, #00ff41 0%, #00ffaa 100%);
+            height: 100%;
+            transition: width 0.5s ease-out;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-weight: bold;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #00ff41 0%, #00aa33 100%);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 255, 65, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 255, 65, 0.6);
+        }
+
+        .btn.danger {
+            background: linear-gradient(135deg, #ff0044 0%, #aa0033 100%);
+            color: #fff;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0a0e27;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #00ff41;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00ffaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚡ TITAN ARBITRAGE BOT - LIVE OPERATIONS DASHBOARD ⚡</h1>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-card live">
+            <h3><span class="live-indicator"></span>STATUS</h3>
+            <div class="value" id="systemStatus">ONLINE</div>
+        </div>
+        <div class="status-card">
+            <h3>MODE</h3>
+            <div class="value" id="executionMode">PAPER</div>
+        </div>
+        <div class="status-card">
+            <h3>ACTIVE CHAINS</h3>
+            <div class="value" id="activeChains">15/15</div>
+        </div>
+        <div class="status-card">
+            <h3>UPTIME</h3>
+            <div class="value" id="uptime">0m</div>
+        </div>
+        <div class="status-card">
+            <h3>OPPORTUNITIES FOUND</h3>
+            <div class="value" id="opportunitiesFound">0</div>
+        </div>
+        <div class="status-card">
+            <h3>TRADES EXECUTED</h3>
+            <div class="value" id="tradesExecuted">0</div>
+        </div>
+        <div class="status-card">
+            <h3>SUCCESS RATE</h3>
+            <div class="value" id="successRate">100%</div>
+        </div>
+        <div class="status-card">
+            <h3>TOTAL PROFIT</h3>
+            <div class="value" id="totalProfit">$0.00</div>
+        </div>
+    </div>
+
+    <div class="main-grid">
+        <div class="panel">
+            <h2>📡 REAL-TIME EVENT STREAM</h2>
+            <div class="log-container" id="logContainer">
+                <div class="log-entry info">
+                    <span class="timestamp">[00:00:00]</span> System initialized - Waiting for data...
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="panel">
+                <h2>🌐 CHAIN STATUS</h2>
+                <div class="chain-grid" id="chainGrid"></div>
+            </div>
+
+            <div class="panel" style="margin-top: 20px;">
+                <h2>💰 LIVE OPPORTUNITIES</h2>
+                <div id="opportunitiesContainer">
+                    <div style="color: #555; text-align: center; padding: 20px;">
+                        Scanning for arbitrage opportunities...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" onclick="toggleAutoScroll()">📜 AUTO-SCROLL</button>
+        <button class="btn" onclick="clearLogs()">🗑️ CLEAR LOGS</button>
+        <button class="btn" onclick="exportLogs()">💾 EXPORT</button>
+        <button class="btn danger" onclick="pauseMonitoring()">⏸️ PAUSE</button>
+    </div>
+
+    <script>
+        const WS_URL = 'ws://localhost:8545';
+        const API_URL = 'http://localhost:8545';
+        
+        let ws = null;
+        let autoScroll = true;
+        let isPaused = false;
+        let startTime = Date.now();
+        let logCount = 0;
+        const MAX_LOGS = 1000;
+
+        const chains = {
+            1: 'Ethereum', 137: 'Polygon', 42161: 'Arbitrum', 10: 'Optimism',
+            8453: 'Base', 56: 'BSC', 43114: 'Avalanche', 250: 'Fantom',
+            59144: 'Linea', 534352: 'Scroll', 5000: 'Mantle', 324: 'ZKsync',
+            81457: 'Blast', 42220: 'Celo', 204: 'opBNB'
+        };
+
+        // Initialize dashboard
+        function init() {
+            renderChainCards();
+            connectWebSocket();
+            startHealthPolling();
+            startUptimeCounter();
+            addLog('info', 'Dashboard initialized');
+            addLog('success', 'Connecting to Titan execution server...');
+        }
+
+        // Render chain status cards
+        function renderChainCards() {
+            const grid = document.getElementById('chainGrid');
+            Object.entries(chains).forEach(([id, name]) => {
+                const card = document.createElement('div');
+                card.className = 'chain-card active scanning';
+                card.innerHTML = `
+                    <div class="name">${name}</div>
+                    <div class="status" id="chain-${id}">●</div>
+                    <div style="font-size: 0.7em; color: #555;">ID: ${id}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Connect to WebSocket
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                addLog('success', '✅ WebSocket connected to execution server');
+                document.getElementById('systemStatus').textContent = 'ONLINE';
+            };
+            
+            ws.onmessage = (event) => {
+                if (isPaused) return;
+                
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (e) {
+                    addLog('error', `Parse error: ${e.message}`);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                addLog('error', '❌ WebSocket error - Check if execution server is running');
+                document.getElementById('systemStatus').textContent = 'ERROR';
+            };
+            
+            ws.onclose = () => {
+                addLog('warning', '⚠️ WebSocket disconnected - Reconnecting in 5s...');
+                document.getElementById('systemStatus').textContent = 'RECONNECTING';
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        // Handle incoming messages
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'trade_signal':
+                    handleTradeSignal(data);
+                    break;
+                case 'execution_result':
+                    handleExecutionResult(data);
+                    break;
+                case 'opportunity':
+                    handleOpportunity(data);
+                    break;
+                case 'chain_update':
+                    handleChainUpdate(data);
+                    break;
+                case 'stats':
+                    updateStats(data.stats);
+                    break;
+                default:
+                    addLog('info', `📨 ${data.message || JSON.stringify(data)}`);
+            }
+        }
+
+        // Handle trade signals
+        function handleTradeSignal(data) {
+            const { chainId, token, amount, expected_profit } = data;
+            const chainName = chains[chainId] || `Chain ${chainId}`;
+            addLog('trade', 
+                `🎯 TRADE SIGNAL: ${token} on ${chainName} | Profit: $${expected_profit?.toFixed(2) || 'N/A'}`
+            );
+            
+            // Increment opportunities counter
+            const current = parseInt(document.getElementById('opportunitiesFound').textContent);
+            document.getElementById('opportunitiesFound').textContent = current + 1;
+        }
+
+        // Handle execution results
+        function handleExecutionResult(data) {
+            const { success, mode, profit, chainId } = data;
+            const chainName = chains[chainId] || `Chain ${chainId}`;
+            
+            if (success) {
+                addLog('success', 
+                    `✅ EXECUTED (${mode}): ${chainName} | Profit: $${profit?.toFixed(2) || '0.00'}`
+                );
+                
+                // Update counters
+                const executed = parseInt(document.getElementById('tradesExecuted').textContent);
+                document.getElementById('tradesExecuted').textContent = executed + 1;
+                
+                if (profit) {
+                    const currentProfit = parseFloat(document.getElementById('totalProfit').textContent.replace('$', ''));
+                    document.getElementById('totalProfit').textContent = `$${(currentProfit + profit).toFixed(2)}`;
+                }
+            } else {
+                addLog('error', `❌ FAILED: ${chainName} | Reason: ${data.error || 'Unknown'}`);
+            }
+        }
+
+        // Handle opportunities
+        function handleOpportunity(data) {
+            const container = document.getElementById('opportunitiesContainer');
+            
+            // Clear placeholder
+            if (container.firstChild?.textContent?.includes('Scanning')) {
+                container.innerHTML = '';
+            }
+            
+            const card = document.createElement('div');
+            card.className = 'opportunity-card';
+            card.innerHTML = `
+                <div class="profit">$${data.profit?.toFixed(2) || '0.00'}</div>
+                <div class="route">
+                    ${chains[data.fromChain]} → ${chains[data.toChain]}<br>
+                    ${data.token} via ${data.protocol}
+                </div>
+                <div style="font-size: 0.8em; color: #555; margin-top: 5px;">
+                    Confidence: ${(data.confidence * 100).toFixed(0)}%
+                </div>
+            `;
+            
+            container.insertBefore(card, container.firstChild);
+            
+            // Keep only last 5 opportunities
+            while (container.children.length > 5) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // Handle chain updates
+        function handleChainUpdate(data) {
+            const { chainId, status } = data;
+            const element = document.getElementById(`chain-${chainId}`);
+            if (element) {
+                element.parentElement.className = `chain-card ${status}`;
+            }
+        }
+
+        // Update stats from server
+        function updateStats(stats) {
+            if (stats.mode) {
+                document.getElementById('executionMode').textContent = stats.mode.toUpperCase();
+            }
+            if (stats.total_signals !== undefined) {
+                document.getElementById('opportunitiesFound').textContent = stats.total_signals;
+            }
+            if (stats.executed !== undefined) {
+                document.getElementById('tradesExecuted').textContent = stats.executed;
+            }
+            if (stats.total_profit !== undefined) {
+                document.getElementById('totalProfit').textContent = `$${stats.total_profit.toFixed(2)}`;
+            }
+            
+            // Calculate success rate
+            if (stats.executed > 0) {
+                const rate = ((stats.executed / (stats.executed + (stats.failed || 0))) * 100).toFixed(1);
+                document.getElementById('successRate').textContent = `${rate}%`;
+            }
+        }
+
+        // Poll server health
+        async function startHealthPolling() {
+            setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_URL}/health`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'healthy') {
+                        document.getElementById('systemStatus').textContent = 'ONLINE';
+                    }
+                    
+                    // Update stats
+                    if (data.stats) {
+                        updateStats(data.stats);
+                    }
+                } catch (error) {
+                    document.getElementById('systemStatus').textContent = 'OFFLINE';
+                }
+            }, 5000);
+        }
+
+        // Update uptime counter
+        function startUptimeCounter() {
+            setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const hours = Math.floor(elapsed / 3600);
+                const minutes = Math.floor((elapsed % 3600) / 60);
+                const seconds = elapsed % 60;
+                
+                let uptime = '';
+                if (hours > 0) uptime += `${hours}h `;
+                if (minutes > 0 || hours > 0) uptime += `${minutes}m `;
+                uptime += `${seconds}s`;
+                
+                document.getElementById('uptime').textContent = uptime;
+            }, 1000);
+        }
+
+        // Add log entry
+        function addLog(type, message) {
+            const container = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            
+            const now = new Date();
+            const timestamp = now.toTimeString().split(' ')[0];
+            
+            entry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            container.appendChild(entry);
+            
+            logCount++;
+            
+            // Remove old logs
+            if (logCount > MAX_LOGS) {
+                container.removeChild(container.firstChild);
+                logCount--;
+            }
+            
+            // Auto-scroll
+            if (autoScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        // Control functions
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            addLog('info', `Auto-scroll ${autoScroll ? 'enabled' : 'disabled'}`);
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            logCount = 0;
+            addLog('info', 'Logs cleared');
+        }
+
+        function exportLogs() {
+            const logs = document.getElementById('logContainer').innerText;
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `titan-logs-${Date.now()}.txt`;
+            a.click();
+            addLog('success', 'Logs exported');
+        }
+
+        function pauseMonitoring() {
+            isPaused = !isPaused;
+            const btn = event.target;
+            btn.textContent = isPaused ? '▶️ RESUME' : '⏸️ PAUSE';
+            addLog('warning', `Monitoring ${isPaused ? 'paused' : 'resumed'}`);
+        }
+
+        // Start dashboard
+        init();
+
+        // Simulate some initial activity for demo
+        setTimeout(() => {
+            addLog('info', '🔍 Scanning 15 blockchain networks...');
+        }, 1000);
+
+        setTimeout(() => {
+            addLog('success', '✅ Connected to Polygon RPC (Primary Network)');
+            addLog('success', '✅ Connected to Ethereum RPC');
+            addLog('success', '✅ Connected to Arbitrum RPC');
+        }, 2000);
+
+        setTimeout(() => {
+            addLog('info', '📊 Fetching real-time gas prices...');
+            addLog('info', '💰 Fetching token prices from 12 oracles...');
+            addLog('info', '🌊 Querying 22 DEX subgraphs for liquidity data...');
+        }, 3000);
+
+        setTimeout(() => {
+            addLog('success', '🚀 All systems operational - Monitoring for opportunities');
+        }, 4000);
+    </script>
+</body>
+</html>

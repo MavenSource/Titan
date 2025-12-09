@@ -826,6 +826,9 @@ class TokenDiscovery:
     Handles token discovery and registry management across all chains.
     """
     
+    # Bridge-compatible assets (class attribute)
+    BRIDGE_ASSETS = BRIDGE_ASSETS
+    
     @staticmethod
     def fetch_all_chains(chain_ids: List[int]) -> Dict[int, Dict[str, dict]]:
         """
