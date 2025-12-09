@@ -39,16 +39,22 @@ class TitanBot {
         console.log("🤖 Titan Bot Starting...");
         
         // Validate configuration
-        if (!PRIVATE_KEY || PRIVATE_KEY === '0xYOUR_REAL_PRIVATE_KEY_HERE') {
-            console.error('❌ CRITICAL: Private key not configured in .env');
-            console.error('   Please set PRIVATE_KEY in your .env file');
+        if (!PRIVATE_KEY || !/^0x[0-9a-fA-F]{64}$/.test(PRIVATE_KEY)) {
+            console.error('❌ CRITICAL: Invalid private key format in .env');
+            console.error('   Must be 64 hex characters with 0x prefix (e.g., 0x1234...)');
             process.exit(1);
         }
         
-        if (!EXECUTOR_ADDR || EXECUTOR_ADDR === '0xYOUR_DEPLOYED_CONTRACT_ADDRESS_HERE') {
-            console.error('❌ CRITICAL: Executor address not configured in .env');
-            console.error('   Please set EXECUTOR_ADDRESS in your .env file');
+        if (!EXECUTOR_ADDR || !/^0x[0-9a-fA-F]{40}$/.test(EXECUTOR_ADDR)) {
+            console.error('❌ CRITICAL: Invalid executor address format in .env');
+            console.error('   Must be 40 hex characters with 0x prefix (e.g., 0xabcd...)');
             process.exit(1);
+        }
+        
+        // Validate gas configuration
+        const maxBaseFee = parseFloat(process.env.MAX_BASE_FEE_GWEI);
+        if (isNaN(maxBaseFee) || maxBaseFee <= 0) {
+            console.warn('⚠️ Invalid MAX_BASE_FEE_GWEI, using default 500 gwei');
         }
         
         // Connect to Redis with retry logic
@@ -135,9 +141,9 @@ class TitanBot {
                 return;
             }
             
-            // Validate credentials
-            if (!PRIVATE_KEY || PRIVATE_KEY === '0xYOUR_REAL_PRIVATE_KEY_HERE') {
-                console.error('❌ Private key not configured');
+            // Validate credentials - check if it's a valid 64-character hex string
+            if (!PRIVATE_KEY || PRIVATE_KEY.length < 64 || !/^0x[0-9a-fA-F]{64}$/.test(PRIVATE_KEY)) {
+                console.error('❌ Invalid private key format - must be 64 hex characters with 0x prefix');
                 return;
             }
             
@@ -209,9 +215,12 @@ class TitanBot {
                 const gasStrategy = signal.ai_params?.priority > 50 ? 'RAPID' : 'STANDARD';
                 const fees = await gasMgr.getDynamicGasFees(gasStrategy);
                 
-                // Validate gas fees are reasonable
-                if (fees.maxFeePerGas && fees.maxFeePerGas > ethers.parseUnits('500', 'gwei')) {
-                    console.log('🛑 Gas fees too high, aborting:', ethers.formatUnits(fees.maxFeePerGas, 'gwei'), 'gwei');
+                // Validate gas fees are reasonable (using same limit as GasManager)
+                const MAX_GAS_FEE_GWEI = parseFloat(process.env.MAX_BASE_FEE_GWEI || '500');
+                const maxFeeGwei = parseFloat(ethers.formatUnits(fees.maxFeePerGas || fees.gasPrice || 0n, 'gwei'));
+                
+                if (maxFeeGwei > MAX_GAS_FEE_GWEI) {
+                    console.log(`🛑 Gas fees too high (${maxFeeGwei} gwei), aborting. Max allowed: ${MAX_GAS_FEE_GWEI} gwei`);
                     return;
                 }
                 

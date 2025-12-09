@@ -30,10 +30,19 @@ interface ICurve {
 contract OmniArbExecutor is Ownable {
     IVaultV3 public immutable BALANCER_VAULT;
     IAavePool public immutable AAVE_POOL;
+    
+    // Configurable deadline for time-sensitive swaps (in seconds)
+    uint256 public swapDeadline = 180; // Default 3 minutes
 
     constructor(address _balancer, address _aave) Ownable(msg.sender) {
         BALANCER_VAULT = IVaultV3(_balancer);
         AAVE_POOL = IAavePool(_aave);
+    }
+    
+    // Allow owner to adjust deadline based on trading strategy
+    function setSwapDeadline(uint256 _seconds) external onlyOwner {
+        require(_seconds >= 60 && _seconds <= 600, "Deadline must be 60-600 seconds");
+        swapDeadline = _seconds;
     }
 
     // =================================================================
@@ -129,7 +138,7 @@ contract OmniArbExecutor is Ownable {
                     tokenOut: path[i], 
                     fee: fee, 
                     recipient: address(this),
-                    deadline: block.timestamp + 300, // 5 minute deadline for safety
+                    deadline: block.timestamp + swapDeadline, // Configurable via setSwapDeadline()
                     amountIn: currentBal, 
                     amountOutMinimum: 0, // Slippage checked off-chain via simulation
                     sqrtPriceLimitX96: 0

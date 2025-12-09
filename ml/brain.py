@@ -108,7 +108,8 @@ class OmniBrain:
             except Exception as e:
                 logger.warning(f"Redis connection attempt {attempt + 1} failed: {e}")
                 if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
+                    # Exponential backoff capped at 10 seconds
+                    time.sleep(min(2 ** attempt, 10))
         logger.error("❌ Failed to establish Redis connection. Operating in degraded mode.")
         self.redis_client = None
 
@@ -282,8 +283,10 @@ class OmniBrain:
                 cost_usd = Decimal(safe_amount) / Decimal(10**decimals)
                 
                 # Calculate realistic gas cost
+                # Approximation: gas_price_gwei * gas_limit * ETH_price_USD / 1e9
+                # Using conservative estimates: 500k gas limit, $2000 ETH price
                 gas_price_gwei = chain_gas_map.get(src_chain, 0)
-                gas_cost_usd = Decimal(str(gas_price_gwei)) * Decimal("0.0001")  # Approximate conversion
+                gas_cost_usd = Decimal(str(gas_price_gwei)) * Decimal("500000") * Decimal("2000") / Decimal("1e9")
                 
             except Exception as e:
                 logger.error(f"DEX price simulation failed for {token_sym}: {e}")
@@ -391,9 +394,10 @@ class OmniBrain:
                     logger.error(f"❌ Redis client not available, cannot broadcast signal")
                     self.consecutive_failures += 1
             except redis.ConnectionError as e:
-                logger.error(f"❌ Redis connection error: {e}. Attempting to reconnect...")
+                logger.error(f"❌ Redis connection error: {e}. Will retry on next cycle.")
                 self.consecutive_failures += 1
-                self._init_redis_connection()
+                # Mark for reconnection but don't block here
+                self.redis_client = None
             except Exception as e:
                 logger.error(f"❌ Signal broadcast error: {e}")
                 self.consecutive_failures += 1
@@ -457,6 +461,11 @@ class OmniBrain:
                 except Exception as e:
                     logger.warning(f"Gas forecast check failed: {e}")
                     # Continue anyway as this is not critical
+                
+                # Reconnect Redis if needed (non-blocking)
+                if self.redis_client is None:
+                    logger.info("Attempting to reconnect Redis...")
+                    self._init_redis_connection()
 
                 # 3. FIND PATHS with error handling
                 try:

@@ -10,6 +10,7 @@ class GasManager {
         this.chainId = chainId;
         this.gasLimitMultiplier = parseFloat(process.env.GAS_LIMIT_MULTIPLIER || "1.2");
         this.maxPriorityFeeGwei = parseFloat(process.env.MAX_PRIORITY_FEE_GWEI || "50");
+        this.MAX_BASE_FEE_GWEI = parseFloat(process.env.MAX_BASE_FEE_GWEI || "500"); // Configurable ceiling
     }
 
     /**
@@ -25,10 +26,9 @@ class GasManager {
             
             // Validate base fee is reasonable
             const baseFeeGwei = parseFloat(ethers.formatUnits(baseFee, 'gwei'));
-            const MAX_BASE_FEE_GWEI = 500; // Absolute ceiling
             
-            if (baseFeeGwei > MAX_BASE_FEE_GWEI) {
-                console.warn(`⚠️ Base fee ${baseFeeGwei} gwei exceeds maximum ${MAX_BASE_FEE_GWEI} gwei`);
+            if (baseFeeGwei > this.MAX_BASE_FEE_GWEI) {
+                console.warn(`⚠️ Base fee ${baseFeeGwei} gwei exceeds maximum ${this.MAX_BASE_FEE_GWEI} gwei`);
                 throw new Error('Gas price too high');
             }
             
@@ -52,9 +52,9 @@ class GasManager {
             let maxFeePerGas = (baseFee * 2n) + priorityFee;
             
             // Apply absolute ceiling
-            const maxFeePerGasCeiling = ethers.parseUnits(MAX_BASE_FEE_GWEI.toString(), 'gwei');
+            const maxFeePerGasCeiling = ethers.parseUnits(this.MAX_BASE_FEE_GWEI.toString(), 'gwei');
             if (maxFeePerGas > maxFeePerGasCeiling) {
-                console.warn(`⚠️ Capping maxFeePerGas from ${ethers.formatUnits(maxFeePerGas, 'gwei')} to ${MAX_BASE_FEE_GWEI} gwei`);
+                console.warn(`⚠️ Capping maxFeePerGas from ${ethers.formatUnits(maxFeePerGas, 'gwei')} to ${this.MAX_BASE_FEE_GWEI} gwei`);
                 maxFeePerGas = maxFeePerGasCeiling;
             }
             
