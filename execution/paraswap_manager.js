@@ -17,7 +17,7 @@ class ParaSwapManager {
         this.provider = provider;
         this.apiUrl = "https://apiv5.paraswap.io";
         this.partnerAddress = process.env.PARASWAP_PARTNER_ADDRESS || "0x0000000000000000000000000000000000000000";
-        this.slippageBps = slippageBps; // Slippage tolerance in basis points (100 = 1%)
+        this.slippageBps = slippageBps; // Slippage tolerance in basis points (100 bps = 1%)
     }
     
     /**
