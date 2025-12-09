@@ -75,3 +75,21 @@ class TitanSimulationEngine:
         except Exception as e:
             # If simulation reverts (e.g., price impact too high), return 0
             return 0
+
+
+# Standalone function for backward compatibility and convenience
+def get_provider_tvl(token_address, lender_address=None, chain_id=137):
+    """
+    Standalone function to check provider liquidity.
+    Used by TitanCommander for liquidity validation.
+    
+    Args:
+        token_address (str): ERC20 token address to check
+        lender_address (str): Unused parameter for backward compatibility
+        chain_id (int): Chain ID (default: 137 for Polygon)
+        
+    Returns:
+        int: Available liquidity in raw token units (smallest token unit)
+    """
+    engine = TitanSimulationEngine(chain_id)
+    return engine.get_lender_tvl(token_address, protocol="BALANCER")

@@ -10,7 +10,7 @@ BALANCER_V3_VAULT = "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 # The system should check for zero addresses before attempting to interact with these protocols.
 
 CHAINS = {
-    1: {
+    1: {  # Ethereum Mainnet
         "name": "ethereum",
         "rpc": os.getenv("RPC_ETHEREUM"),
         "wss": os.getenv("WSS_ETHEREUM"),
@@ -25,7 +25,7 @@ CHAINS = {
         "wss": os.getenv("WSS_POLYGON"),
         "aave_pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
         "uniswap_router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-        "curve_router": "0x3c0FACA5cE5FBDA102C32F3C0F4e10e3131B2b2f",
+        "curve_router": "0x445FE580eF8d70FF569aB36e80c647af338db351",  # Curve aave pool on Polygon
         "native": "MATIC"
     },
     42161: {
@@ -143,17 +143,22 @@ CHAINS = {
         "pancake_router": "0x0000000000000000000000000000000000000000",  # PancakeSwap not configured for opBNB
         "native": "BNB"
     }
+    # Add remaining 8 chains here following the pattern
 }
 
-# DEX Router Registry (for multi-protocol support)
+# DEX Router Registry - Maps chain IDs to DEX names and their router contract addresses
 DEX_ROUTERS = {
-    "uniswap_v3": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-    "uniswap_v2": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-    "sushiswap": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
-    "curve": "0x99a58482BD75cbab83b27EC03CA68fF489b5788f",
-    "balancer_v2": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
-    "quickswap": "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
-    "pancakeswap": "0x13f4EA83D0bd40E75C8222255bc855a974568Dd4",
-    "traderjoe": "0x60aE616a2155Ee3d9A68541Ba4544862310933d4",
-    "spookyswap": "0xF491e7B69E4244ad4002BC14e878a34207E38c29"
+    1: {  # Ethereum
+        "UNIV2": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",  # Uniswap V2 Router
+        "SUSHI": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",  # SushiSwap Router
+    },
+    137: {  # Polygon
+        "QUICKSWAP": "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",  # QuickSwap Router
+        "SUSHI": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",  # SushiSwap Router on Polygon
+        "APE": "0xC0788A3aD43d79aa53B09c2EaCc313A787d1d607",  # ApeSwap Router on Polygon
+    },
+    42161: {  # Arbitrum
+        "CAMELOT": "0xc873fEcbd354f5A56E00E710B90EF4201db2448d",  # Camelot Router
+        "SUSHI": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",  # SushiSwap Router on Arbitrum
+    }
 }

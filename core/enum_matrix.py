@@ -1,46 +1,100 @@
 """
-Chain Manager - Provides connection details for all supported networks
+Enum Matrix - Chain ID enumeration and provider management utilities
 """
+from enum import IntEnum
+from web3 import Web3
 from core.config import CHAINS
 
-class ChainManager:
+class ChainID(IntEnum):
     """
-    Utility class to get network connection details across 15+ chains
+    Enumeration of supported blockchain networks by their EIP-155 Chain ID
+    
+    All major chains are now configured in CHAINS dict with mainnet-ready addresses (Dec 2024).
+    Chains with placeholder addresses (0x0) indicate protocols not yet deployed on that network.
+    """
+    ETHEREUM = 1
+    POLYGON = 137
+    ARBITRUM = 42161
+    OPTIMISM = 10
+    BASE = 8453
+    BSC = 56
+    AVALANCHE = 43114
+    FANTOM = 250
+    LINEA = 59144
+    SCROLL = 534352
+    MANTLE = 5000
+    ZKSYNC = 324
+    CELO = 42220
+    OPBNB = 204
+
+class ProviderManager:
+    """
+    Manages Web3 provider connections for multiple chains
     """
     
     @staticmethod
-    def get_connection_details(chain_id: int) -> dict:
+    def get_provider(chain_id):
         """
-        Returns RPC, WebSocket, and network details for a given chain ID
+        Get Web3 provider for a specific chain
         
         Args:
-            chain_id: The EVM chain ID
+            chain_id (int): Chain ID
             
         Returns:
-            dict with keys: name, rpc, wss, aave_pool, uniswap_router, native
+            Web3: Connected Web3 instance or None if not configured
         """
-        if chain_id not in CHAINS:
-            raise ValueError(f"Chain ID {chain_id} not configured in CHAINS")
+        chain_config = CHAINS.get(chain_id)
+        if not chain_config or not chain_config.get('rpc'):
+            return None
         
-        return CHAINS[chain_id]
+        rpc_url = chain_config['rpc']
+        if not rpc_url:
+            return None
+        
+        try:
+            w3 = Web3(Web3.HTTPProvider(rpc_url))
+            if w3.is_connected():
+                return w3
+        except Exception as e:
+            print(f"⚠️ Failed to connect to chain {chain_id}: {e}")
+        
+        return None
     
     @staticmethod
-    def get_all_chain_ids() -> list:
+    def get_all_providers():
         """
-        Returns list of all configured chain IDs
+        Get Web3 providers for all configured chains
+        
+        Returns:
+            dict: {chain_id: Web3 instance}
         """
-        return list(CHAINS.keys())
+        providers = {}
+        for chain_id in CHAINS.keys():
+            provider = ProviderManager.get_provider(chain_id)
+            if provider:
+                providers[chain_id] = provider
+        
+        return providers
     
     @staticmethod
-    def is_chain_supported(chain_id: int) -> bool:
+    def test_connection(chain_id):
         """
-        Check if a chain is supported
+        Test connection to a specific chain
+        
+        Args:
+            chain_id (int): Chain ID to test
+            
+        Returns:
+            bool: True if connected, False otherwise
         """
-        return chain_id in CHAINS
-    
-    @staticmethod
-    def get_chain_name(chain_id: int) -> str:
-        """
-        Get human-readable chain name
-        """
-        return CHAINS.get(chain_id, {}).get("name", "Unknown")
+        provider = ProviderManager.get_provider(chain_id)
+        if not provider:
+            return False
+        
+        try:
+            block_number = provider.eth.block_number
+            print(f"✅ Chain {chain_id}: Connected | Block: {block_number}")
+            return True
+        except Exception as e:
+            print(f"❌ Chain {chain_id}: Connection failed | Error: {e}")
+            return False
