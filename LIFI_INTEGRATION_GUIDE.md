@@ -38,7 +38,7 @@ User receives 1000 USDC on Arbitrum
 
 **Problem**: By the time your funds arrive, the arbitrage opportunity has disappeared.
 
-### Intent-Based Bridging (5-60 seconds)
+### Intent-Based Bridging (30-120 seconds)
 ```
 1. User deposits 1000 USDC on Polygon (Source Chain)
          ↓ [Instant detection by off-chain solvers]
@@ -61,7 +61,7 @@ User receives 1000 USDC on Arbitrum
 **Example with Across Protocol (a Li.Fi supported bridge)**:
 ```javascript
 // User initiates bridge on Polygon
-User deposits → Across sees it → Solver on Arbitrum advances funds (3-60 seconds)
+User deposits → Across sees it → Solver on Arbitrum advances funds (30-120 seconds)
                     ↓ [10-30 mins later]
              Canonical bridge completes → Solver gets reimbursed
 ```
@@ -78,7 +78,7 @@ User deposits → Across sees it → Solver on Arbitrum advances funds (3-60 sec
 - AI Brain detects price difference: WETH is $2,000 on Polygon, $2,020 on Arbitrum
 - Calculate potential profit: 1% spread - 0.2% bridge fee = 0.8% profit
 - Call LiFi to bridge assets using intent-based protocol (Across, Stargate)
-- Solver advances funds on Arbitrum in 5-60 seconds
+- Solver advances funds on Arbitrum in 30-120 seconds
 - Execute arbitrage trade on Arbitrum before opportunity closes
 - Original bridge completes in background (10-30 minutes later)
 
@@ -241,7 +241,7 @@ if (connections.connections.length > 0) {
 #### ✅ 1. Intent-Based Bridging (Liquidity Advancement)
 - **Capability**: Execute cross-chain arbitrage with minimal latency
 - **Mechanism**: Uses Across, Stargate, or other intent-based protocols via Li.Fi
-- **Speed**: 5-60 seconds for fund arrival (vs 10-30 minutes traditional)
+- **Speed**: 30-120 seconds for fund arrival (vs 10-30 minutes traditional)
 - **Limitation**: Requires you to hold your own capital (flash loans cannot span chains)
 
 **Why Flash Loans Can't Be Used Directly**:
@@ -716,7 +716,7 @@ async function callLifiAPI() {
 
 The Li.Fi integration enables APEX-OMEGA TITAN to execute cross-chain arbitrage strategies that were previously impossible due to bridge latency. By leveraging intent-based bridging and the solver network, the system can now:
 
-1. ✅ Bridge assets in 5-60 seconds (vs 10-30 minutes)
+1. ✅ Bridge assets in 30-120 seconds (vs 10-30 minutes)
 2. ✅ Execute arbitrage before opportunities disappear
 3. ✅ Automatically select the cheapest and fastest route
 4. ✅ Access 15+ bridge protocols through a single API

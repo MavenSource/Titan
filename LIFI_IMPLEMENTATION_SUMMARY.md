@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes the comprehensive Li.Fi API integration implemented for the APEX-OMEGA TITAN arbitrage system. The integration enables **intent-based bridging** (also known as liquidity advancement) for cross-chain arbitrage, reducing bridge times from 10-30 minutes to 30-60 seconds.
+This document summarizes the comprehensive Li.Fi API integration implemented for the APEX-OMEGA TITAN arbitrage system. The integration enables **intent-based bridging** (also known as liquidity advancement) for cross-chain arbitrage, reducing bridge times from 10-30 minutes to 30-120 seconds.
 
 ## What is Intent-Based Bridging?
 
@@ -25,7 +25,7 @@ Intent-based bridges use a **solver network** (professional market makers) who:
 
 ### ✅ What the System CAN Do
 
-1. **Intent-Based Bridging**: Execute cross-chain transfers in 30-60 seconds via solver networks
+1. **Intent-Based Bridging**: Execute cross-chain transfers in 30-120 seconds via solver networks
 2. **Automatic Route Selection**: Choose optimal bridge from 15+ protocols based on cost and speed
 3. **Cross-Chain Price Monitoring**: Real-time price tracking across 15+ blockchain networks
 4. **Hybrid Arbitrage Strategies**: Bridge capital quickly, then execute leveraged trades with flash loans on destination chain
@@ -259,8 +259,8 @@ else:
 
 ### Time Savings
 - **Before**: 10-30 minutes → opportunity lost
-- **After**: 30-60 seconds → opportunity captured
-- **Improvement**: 10-30x faster
+- **After**: 30-120 seconds → opportunity captured
+- **Improvement**: 5-30x faster
 
 ## Testing
 

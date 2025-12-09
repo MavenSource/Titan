@@ -7,7 +7,7 @@ Stargate, and Hop, which enable near-instant cross-chain transfers through
 market maker solver networks.
 
 Key Features:
-- Intent-based bridging with 5-60 second settlement times
+- Intent-based bridging with 30-120 second settlement times
 - Automatic best route selection from 15+ bridge protocols
 - Solver liquidity verification
 - Route validation and cost estimation
@@ -17,8 +17,12 @@ Key Features:
 import subprocess
 import json
 import os
+import logging
 from decimal import Decimal
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, Tuple
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class LiFiWrapper:
@@ -107,17 +111,17 @@ class LiFiWrapper:
             )
             
             if result.returncode != 0:
-                print(f"⚠️ LiFi quote error: {result.stderr}")
+                logger.warning("LiFi quote error: %s", result.stderr)
                 return None
             
             quote = json.loads(result.stdout.strip())
             return quote
             
         except subprocess.TimeoutExpired:
-            print("⚠️ LiFi quote request timed out")
+            logger.warning("LiFi quote request timed out")
             return None
         except Exception as e:
-            print(f"⚠️ LiFi quote failed: {e}")
+            logger.error("LiFi quote failed: %s", e)
             return None
     
     def verify_route(
@@ -171,7 +175,7 @@ class LiFiWrapper:
                 return False, False, 0
                 
         except Exception as e:
-            print(f"⚠️ Route verification failed: {e}")
+            logger.warning("Route verification failed: %s", e)
             return False, False, 0
     
     def estimate_bridge_time(self, bridge_name: str) -> int:

@@ -10,8 +10,6 @@ functionality like solver verification and timing estimates.
 import requests
 import os
 import logging
-from decimal import Decimal
-from typing import Optional, Dict
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -89,8 +87,13 @@ class BridgeAggregator:
                 gas_costs = estimate.get('gasCosts', [])
                 total_gas_usd = sum(float(cost.get('amountUSD', 0)) for cost in gas_costs)
                 
-                # Determine if intent-based
-                intent_based_bridges = ['across', 'stargate', 'hop']
+                # Determine if intent-based (import from config to avoid duplication)
+                try:
+                    from core.config import INTENT_BASED_BRIDGES
+                    intent_based_bridges = list(INTENT_BASED_BRIDGES.keys())
+                except ImportError:
+                    # Fallback if config not available
+                    intent_based_bridges = ['across', 'stargate', 'hop']
                 is_intent_based = any(bridge in bridge_name.lower() for bridge in intent_based_bridges)
                 
                 # Estimate completion time
