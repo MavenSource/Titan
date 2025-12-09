@@ -15,7 +15,7 @@
     "audit": "python3 audit_system.py",
     "health": "redis-cli ping && node -v && python3 --version",
     "clean": "rm -rf artifacts cache typechain typechain-types",
-    "setup": "npm install --legacy-peer-deps && pip3 install -r requirements.txt && npx hardhat compile"
+    "setup": "npm ci && pip3 install -r requirements.txt && npx hardhat compile"
   },
   "keywords": [
     "defi",
@@ -52,5 +52,8 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "hardhat": "^2.19.5"
+  },
+  "overrides": {
+    "ethers": "^6.16.0"
   }
 }
