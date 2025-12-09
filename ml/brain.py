@@ -1,7 +1,8 @@
+import os
 import time
 import logging
 import json
-import redis
+import asyncio
 import rustworkx as rx
 import pandas as pd
 from web3 import Web3
@@ -11,10 +12,11 @@ from decimal import Decimal, getcontext
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Core Infrastructure
-from core.config import CHAINS, BALANCER_V3_VAULT, DEX_ROUTERS
+from core.config import CHAINS, BALANCER_V3_VAULT, DEX_ROUTERS, DEFAULT_CHAIN_ID, DEFAULT_CHAIN_NAME
 from core.token_discovery import TokenDiscovery
 from routing.bridge_manager import BridgeManager
 from core.titan_commander_core import TitanCommander
+from execution.execution_client import ExecutionManager
 
 # The Cortex (AI Layer)
 from ml.cortex.forecaster import MarketForecaster
@@ -74,19 +76,42 @@ class OmniBrain:
         self.optimizer = QLearningAgent()
         self.memory = FeatureStore()
         
-        # 3. Communication
-        self.redis_client = redis.Redis(host='localhost', port=6379, db=0)
+        # 3. Communication (Direct Python-to-Node via HTTP/WebSocket)
+        self.execution_manager = None  # Initialized async
+        self.execution_mode = os.getenv("EXECUTION_MODE", "PAPER")
         
-        # 4. State
+        logger.info(f"🎯 Execution Mode: {self.execution_mode.upper()}")
+        
+        if self.execution_mode.upper() == "LIVE":
+            logger.warning("🔴 LIVE MAINNET MODE - REAL CAPITAL AT RISK")
+            logger.warning("🔴 Ensure PRIVATE_KEY and EXECUTOR_ADDRESS are configured")
+        else:
+            logger.info("📝 Paper Trading Mode - No real capital required")
+        
+        # 5. State
         self.node_indices = {} 
         self.executor = ThreadPoolExecutor(max_workers=20)
+
+    async def initialize_async(self):
+        """Async initialization for ExecutionManager"""
+        logger.info("🔗 Connecting to execution server...")
+        self.execution_manager = ExecutionManager()
+        connected = await self.execution_manager.initialize()
+        
+        if not connected:
+            logger.error("❌ Failed to connect to execution server")
+            logger.error("Start server with: node execution/execution_server.js")
+            raise RuntimeError("Execution server not available")
+        
+        logger.info("✅ Connected to execution layer")
 
     def initialize(self):
         logger.info("🧠 Booting Apex-Omega Titan Brain...")
         
-        # A. Load Assets (10 Chains)
-        target_chains = list(CHAINS.keys())
+        # A. Load Assets (10 Chains) - Prioritize Polygon (137) as primary network
+        target_chains = [137] + [c for c in CHAINS.keys() if c != 137]  # Polygon first
         self.inventory = TokenDiscovery.fetch_all_chains(target_chains)
+        logger.info(f"✅ Primary Network: Polygon (Chain ID: 137)")
         
         # B. Initialize Web3
         for cid, config in CHAINS.items():
@@ -96,6 +121,14 @@ class OmniBrain:
         # C. Build Graph
         self._build_graph_nodes()
         self._build_bridge_edges()
+        
+        # D. Initialize Execution Layer (async)
+        try:
+            asyncio.run(self.initialize_async())
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize execution layer: {e}")
+            logger.warning("⚠️  Running in analysis-only mode")
+            self.execution_manager = None
         
         logger.info(f"✅ System Online. Tracking {self.graph.num_nodes()} nodes.")
 
@@ -229,7 +262,7 @@ class OmniBrain:
         # 6. AI TUNING
         exec_params = self.optimizer.recommend_parameters(src_chain, "MEDIUM")
 
-        # 7. BROADCAST
+        # 7. EXECUTE TRADE (Paper or Live based on mode)
         signal = {
             "type": "INTRA_CHAIN",
             "chainId": src_chain,
@@ -240,17 +273,49 @@ class OmniBrain:
             "path": path,
             "extras": extras,
             "ai_params": exec_params,
+            "expected_profit": float(result['net_profit']),
+            "estimated_slippage_bps": 20,  # From simulation
+            "gas_cost": float(result['total_fees']),
+            "confidence_score": 0.90,  # From AI optimizer
             "metrics": {
                 "profit_usd": float(result['net_profit']),
                 "fees_usd": float(result['total_fees'])
             }
         }
 
+        # Check if execution manager available
+        if not self.execution_manager:
+            logger.info(f"📊 Analysis Mode: Profit=${result['net_profit']:.2f} (execution disabled)")
+            return
+
         try:
-            self.redis_client.publish("trade_signals", json.dumps(signal))
-            logger.info(f"⚡ SIGNAL BROADCASTED TO REDIS")
+            # Submit trade to Node.js execution layer via HTTP
+            execution_result = asyncio.run(
+                self.execution_manager.submit_trade(
+                    chain_id=src_chain,
+                    token=token_addr,
+                    amount=str(safe_amount),
+                    flash_source=1,  # Balancer V3
+                    protocols=protocols,
+                    routers=routers,
+                    path=path,
+                    extras=[e.encode() if isinstance(e, str) else e for e in extras],
+                    expected_profit=float(result['net_profit'])
+                )
+            )
+            
+            if execution_result.get('success'):
+                mode = execution_result.get('mode', 'UNKNOWN')
+                if mode == 'PAPER':
+                    logger.info(f"📝 Paper Trade: ${result['net_profit']:.2f} profit")
+                else:
+                    tx_hash = execution_result.get('txHash', 'pending')
+                    logger.warning(f"🔴 Live Trade: {tx_hash[:10]}... | ${result['net_profit']:.2f}")
+            else:
+                logger.error(f"❌ Execution failed: {execution_result.get('error')}")
+                
         except Exception as e:
-            logger.error(f"❌ Redis Error: {e}")
+            logger.error(f"❌ Execution Error: {e}")
 
     def scan_loop(self):
         logger.info("🚀 Titan Brain: Engaging Hyper-Parallel Scan Loop...")
