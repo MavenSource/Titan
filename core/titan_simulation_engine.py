@@ -89,7 +89,7 @@ def get_provider_tvl(token_address, lender_address, chain_id=137):
         chain_id (int): Chain ID (default: 137 for Polygon)
         
     Returns:
-        int: Available liquidity in raw token units (wei)
+        int: Available liquidity in raw token units (smallest token unit)
     """
     engine = TitanSimulationEngine(chain_id)
     return engine.get_lender_tvl(token_address, protocol="BALANCER")
