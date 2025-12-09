@@ -21,6 +21,17 @@ class GasManager {
         
         // Configuration per chain
         this.config = this._getChainConfig(chainId);
+        
+        // Gas cost database (empirically measured)
+        this.GAS_COSTS = {
+            FLASH_LOAN_OVERHEAD: 150000,      // Balancer/Aave flash loan setup
+            UNIV3_SWAP: 120000,               // Uniswap V3 swap
+            UNIV2_SWAP: 90000,                // Uniswap V2 fork swap
+            CURVE_SWAP: 90000,                // Curve stable swap
+            BALANCER_SWAP: 100000,            // Balancer V2 swap
+            PARASWAP: 180000,                 // ParaSwap aggregator
+            REPAYMENT: 100000                 // Flash loan repayment
+        };
     }
     
     /**
@@ -127,23 +138,92 @@ class GasManager {
     /**
      * Estimate gas limit with safety buffer
      * @param {object} txRequest - Transaction request object
+     * @param {object} routeInfo - Route information for intelligent fallback (optional)
      * @returns {Promise<bigint>} Safe gas limit
      */
-    async estimateGasWithBuffer(txRequest) {
+    async estimateGasWithBuffer(txRequest, routeInfo = null) {
         try {
+            // Try actual gas estimation first
             const estimate = await this.provider.estimateGas(txRequest);
             
             // Apply safety multiplier
             const safeGasLimit = (estimate * BigInt(Math.floor(this.config.gasLimitMultiplier * 100))) / 100n;
             
+            console.log(`✅ Gas estimated: ${estimate.toString()} (with buffer: ${safeGasLimit.toString()})`);
             return safeGasLimit;
             
         } catch (error) {
             console.error(`⚠️ Gas Estimation Failed: ${error.message}`);
             
-            // Return conservative fallback
-            return 500000n; // 500k gas units
+            // INTELLIGENT FALLBACK: Calculate based on route complexity
+            const fallbackGas = this._calculateFallbackGas(routeInfo);
+            
+            console.log(`📊 Using intelligent fallback: ${fallbackGas.toString()} gas`);
+            return fallbackGas;
         }
+    }
+    
+    /**
+     * Calculate fallback gas estimate based on route complexity
+     * @param {object} routeInfo - Route information (protocols, routers, etc.)
+     * @returns {bigint} Estimated gas limit
+     */
+    _calculateFallbackGas(routeInfo) {
+        let totalGas = this.GAS_COSTS.FLASH_LOAN_OVERHEAD;
+        
+        if (!routeInfo || !routeInfo.protocols) {
+            // No route info - use maximum conservative estimate
+            console.warn('⚠️ No route info provided, using maximum estimate');
+            return BigInt(800000); // Maximum for complex multi-hop
+        }
+        
+        // Add gas for each protocol in the route
+        const protocols = routeInfo.protocols || [];
+        
+        for (let i = 0; i < protocols.length; i++) {
+            const protocolId = protocols[i];
+            
+            switch (protocolId) {
+                case 1: // Uniswap V3
+                    totalGas += this.GAS_COSTS.UNIV3_SWAP;
+                    console.log(`   Protocol ${i+1}: UniV3 (+${this.GAS_COSTS.UNIV3_SWAP} gas)`);
+                    break;
+                case 2: // Curve
+                    totalGas += this.GAS_COSTS.CURVE_SWAP;
+                    console.log(`   Protocol ${i+1}: Curve (+${this.GAS_COSTS.CURVE_SWAP} gas)`);
+                    break;
+                case 3: // Balancer V2
+                    totalGas += this.GAS_COSTS.BALANCER_SWAP;
+                    console.log(`   Protocol ${i+1}: Balancer (+${this.GAS_COSTS.BALANCER_SWAP} gas)`);
+                    break;
+                case 4: // ParaSwap
+                    totalGas += this.GAS_COSTS.PARASWAP;
+                    console.log(`   Protocol ${i+1}: ParaSwap (+${this.GAS_COSTS.PARASWAP} gas)`);
+                    break;
+                default:
+                    // Unknown protocol - use conservative estimate
+                    totalGas += this.GAS_COSTS.UNIV3_SWAP;
+                    console.log(`   Protocol ${i+1}: Unknown (+${this.GAS_COSTS.UNIV3_SWAP} gas)`);
+            }
+        }
+        
+        // Add repayment overhead
+        totalGas += this.GAS_COSTS.REPAYMENT;
+        
+        // Apply safety multiplier
+        const safeGas = Math.floor(totalGas * this.config.gasLimitMultiplier);
+        
+        // Add extra buffer for complex routes (3+ hops)
+        if (protocols.length >= 3) {
+            const complexityBuffer = 50000;
+            totalGas += complexityBuffer;
+            console.log(`   Added complexity buffer: +${complexityBuffer} gas`);
+        }
+        
+        console.log(`   Base gas: ${totalGas}`);
+        console.log(`   With ${this.config.gasLimitMultiplier}x multiplier: ${safeGas}`);
+        
+        return BigInt(safeGas);
     }
     
     /**
@@ -154,6 +234,19 @@ class GasManager {
      */
     calculateTxCost(gasLimit, maxFeePerGas) {
         return gasLimit * maxFeePerGas;
+    }
+    
+    /**
+     * Estimate gas cost in USD
+     * @param {bigint} gasLimit - Gas limit for transaction
+     * @param {bigint} gasPrice - Gas price (wei)
+     * @param {number} ethPriceUsd - ETH price in USD (default: 2000)
+     * @returns {number} Estimated cost in USD
+     */
+    estimateGasCostUSD(gasLimit, gasPrice, ethPriceUsd = 2000) {
+        const gasCostWei = gasLimit * gasPrice;
+        const gasCostEth = Number(ethers.formatEther(gasCostWei));
+        return gasCostEth * ethPriceUsd;
     }
     
     /**
