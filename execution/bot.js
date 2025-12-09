@@ -361,11 +361,35 @@ class TitanBot {
                 console.error('❌ Invalid cross-chain signal: missing source/dest chains');
                 return;
             }
-            
+
             const srcChain = signal.source_chain;
             const dstChain = signal.dest_chain;
             const token = signal.token;
             const amount = signal.amount;
+
+            // Validate chain IDs
+            if (!RPC_MAP[srcChain] || !RPC_MAP[dstChain]) {
+                console.error(`❌ Unsupported chain ID: ${srcChain} or ${dstChain}`);
+                return;
+            }
+
+            // Validate token address
+            if (!token || !ethers.utils.isAddress(token)) {
+                console.error(`❌ Invalid token address: ${token}`);
+                return;
+            }
+
+            // Validate amount
+            if (
+                amount === undefined ||
+                amount === null ||
+                isNaN(amount) ||
+                (typeof amount === 'string' && amount.trim() === '') ||
+                BigInt(amount) <= 0n
+            ) {
+                console.error(`❌ Invalid amount: ${amount}`);
+                return;
+            }
             
             console.log(`   Source Chain: ${srcChain}`);
             console.log(`   Destination Chain: ${dstChain}`);
