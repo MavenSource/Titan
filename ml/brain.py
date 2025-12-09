@@ -273,7 +273,7 @@ class OmniBrain:
                     logger.debug(f"Curve not available on chain {src_chain}")
                     return
                 
-                # FIX #1 INTEGRATION: Use new method signature with token addresses
+                # FIX #2: Use new method signature with token addresses
                 step2_out = pricer.get_curve_price(
                     pool_address=curve_router,
                     token_in=weth_addr,       # We have WETH from step 1
@@ -404,6 +404,7 @@ class OmniBrain:
                 
                 # Validate AI parameters
                 if exec_params.get('slippage', 0) > self.MAX_SLIPPAGE_BPS:
+                    logger.warning(f"AI slippage {exec_params['slippage']} exceeds max {self.MAX_SLIPPAGE_BPS}, capping")
                     exec_params['slippage'] = self.MAX_SLIPPAGE_BPS
                 
                 max_priority = float(self.MAX_GAS_PRICE_GWEI) / 2
@@ -438,7 +439,7 @@ class OmniBrain:
             try:
                 if self.redis_client:
                     self.redis_client.publish("trade_signals", json.dumps(signal))
-                    logger.info(f"⚡ SIGNAL BROADCASTED")
+                    logger.info(f"⚡ SIGNAL BROADCASTED for {token_sym}")
                     self.consecutive_failures = 0
             except redis.ConnectionError as e:
                 logger.error(f"Redis connection error: {e}")

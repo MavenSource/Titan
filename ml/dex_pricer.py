@@ -57,7 +57,7 @@ class DexPricer:
                 i, j = indices
             
             # Mode 2: Legacy - indices provided directly
-            elif i is None or j is None:
+            elif i is None and j is None:
                 logger.error("get_curve_price requires either (token_in, token_out) or (i, j)")
                 return 0
             
