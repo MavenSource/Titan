@@ -152,7 +152,7 @@ class OmniBrain:
 
     def _evaluate_and_signal(self, opp, chain_gas_map):
         """
-        Worker function: Evaluates opportunities and broadcasts signals.
+        Worker function: Validates Liquidity, Simulates Price, Calculates Profit, Broadcasts.
         """
         src_chain = opp['src_chain']
         dst_chain = opp['dst_chain']
@@ -160,12 +160,14 @@ class OmniBrain:
         token_addr = opp['token_addr_src']
         decimals = opp['decimals']
         
-        # 1. DETERMINE LOAN AMOUNT
+        # 1. SAFETY CHECK (Liquidity Guard)
         commander = TitanCommander(src_chain)
-        target_trade_usd = 10000
+        target_trade_usd = 10000 # Start ambition
         target_raw = target_trade_usd * (10**decimals)
         
         safe_amount = commander.optimize_loan_size(token_addr, target_raw, decimals)
+        if safe_amount == 0:
+            return # Not enough liquidity
 
         # 2. GET BRIDGE QUOTE (Cost 1)
         quote = self.bridge.get_route(
@@ -208,8 +210,11 @@ class OmniBrain:
             bridge_fee_usd=0, # Intra-chain has no bridge fee
             gas_cost_usd=gas_cost_usd
         )
+        
+        if not result['is_profitable']:
+            return
 
-        logger.info(f"💰 OPPORTUNITY: {token_sym} | Net: ${result['net_profit']:.2f}")
+        logger.info(f"💰 PROFIT FOUND: {token_sym} | Net: ${result['net_profit']:.2f}")
 
         # 5. PAYLOAD CONSTRUCTION
         chain_conf = CHAINS.get(src_chain)
@@ -256,10 +261,14 @@ class OmniBrain:
             gas_futures = {self.executor.submit(self._get_gas_price, cid): cid for cid in active_chains}
             chain_gas_map = {gas_futures[f]: f.result() for f in as_completed(gas_futures)}
 
-            # 2. GAS TRACKING
+            # 2. FORECAST GUARD
             poly_gas = chain_gas_map.get(137, 0.0)
             if poly_gas > 0:
                 self.forecaster.ingest_gas(poly_gas)
+                if self.forecaster.should_wait():
+                    logger.info("⏳ AI HOLD: Gas trend unfavorable.")
+                    time.sleep(2)
+                    continue
 
             # 3. FIND PATHS
             candidates = self._find_opportunities()

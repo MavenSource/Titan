@@ -3,7 +3,7 @@ import pandas as pd
 
 class MarketForecaster:
     """
-    Predicts near-future market states for execution optimization.
+    Predicts near-future states to prevent 'Bad Timing' trades.
     """
     
     def __init__(self, history_window=50):

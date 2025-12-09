@@ -124,7 +124,63 @@ class OmniSDKEngine {
         }
     }
 
+    // ============================================================================
+    // 4. FULL TRANSACTION SIMULATION (THE SAFETY NET)
+    // ============================================================================
 
+    /**
+     * Simulates the entire Flash Loan transaction via 'eth_call'.
+     * This checks if the trade will REVERT due to slippage, lack of liquidity, or logic error.
+     * * @param {object} txRequest - The populated transaction object { to, data, value, from, ... }
+     * @returns {Promise<{success: boolean, gasUsed: bigint, error: string}>}
+     */
+    async simulateTransaction(txRequest) {
+        console.log("🧪 Running Full System Simulation...");
+
+        try {
+            // 1. Prepare Call
+            // We override the block number to 'latest' to simulate against pending state if supported
+            const txObj = {
+                to: txRequest.to,
+                from: txRequest.from,
+                data: txRequest.data,
+                value: txRequest.value || "0x0"
+            };
+
+            // 2. Execute eth_call
+            // If this throws, the transaction would have failed on-chain.
+            const result = await this.provider.call(txObj);
+
+            // 3. Estimate Gas (Double Check)
+            // eth_estimateGas runs the code to calculate gas. If it fails, it throws.
+            const gasEstimate = await this.provider.estimateGas(txObj);
+
+            console.log(`✅ Simulation SUCCESS. Estimated Gas: ${gasEstimate.toString()}`);
+            return { success: true, gasUsed: gasEstimate, error: null };
+
+        } catch (error) {
+            const reason = this._extractRevertReason(error);
+            console.error(`🛑 Simulation REVERTED: ${reason}`);
+            
+            return { success: false, gasUsed: 0n, error: reason };
+        }
+    }
+
+    /**
+     * Utilities to parse cryptic EVM revert errors into readable text.
+     */
+    _extractRevertReason(error) {
+        // Ethers v6 puts data in error.data or error.revert.args
+        if (error.reason) return error.reason;
+        
+        // Decode Custom Error if possible
+        if (error.data && error.data.startsWith('0x08c379a0')) { // Error(string)
+            const abiCoder = new ethers.AbiCoder();
+            return abiCoder.decode(['string'], '0x' + error.data.slice(10))[0];
+        }
+        
+        return error.shortMessage || "Unknown Revert (Check Liquidity or Auth)";
+    }
 }
 
 module.exports = { OmniSDKEngine };
