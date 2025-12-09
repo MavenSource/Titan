@@ -70,8 +70,10 @@ class DexPricer:
                     coin_addr = pool.functions.coins(i).call()
                     coin_map[coin_addr.lower()] = i
                     logger.debug(f"Pool {pool_address[:8]}: coins({i}) = {coin_addr}")
-                except Exception:
-                    break  # No more coins
+                except Exception as e:
+                    # Pool has no more coins at this index (expected behavior)
+                    logger.debug(f"No coin at index {i} for pool {pool_address[:8]}: {e}")
+                    break
             
             if len(coin_map) < 2:
                 logger.warning(f"Pool {pool_address} has insufficient coins: {len(coin_map)}")
