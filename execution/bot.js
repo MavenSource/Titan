@@ -11,9 +11,21 @@ const EXECUTOR_ADDR = process.env.EXECUTOR_ADDRESS;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
 const RPC_MAP = {
+    1: process.env.RPC_ETHEREUM,
     137: process.env.RPC_POLYGON,
-    1: process.env.RPC_ETHEREUM
-    // ... Add all 10 chains
+    42161: process.env.RPC_ARBITRUM,
+    10: process.env.RPC_OPTIMISM,
+    8453: process.env.RPC_BASE,
+    56: process.env.RPC_BSC,
+    43114: process.env.RPC_AVALANCHE,
+    250: process.env.RPC_FANTOM,
+    59144: process.env.RPC_LINEA,
+    534352: process.env.RPC_SCROLL,
+    5000: process.env.RPC_MANTLE,
+    324: process.env.RPC_ZKSYNC,
+    81457: process.env.RPC_BLAST,
+    42220: process.env.RPC_CELO,
+    204: process.env.RPC_OPBNB
 };
 
 class TitanBot {
