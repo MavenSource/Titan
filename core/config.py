@@ -5,6 +5,10 @@ load_dotenv()
 # V3 Vault is deterministic (Same addr on all chains)
 BALANCER_V3_VAULT = "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 
+# Note: Address 0x0000000000000000000000000000000000000000 (zero address) indicates
+# that a protocol/router is not available or not deployed on that specific chain.
+# The system should check for zero addresses before attempting to interact with these protocols.
+
 CHAINS = {
     1: {
         "name": "ethereum",
@@ -30,7 +34,7 @@ CHAINS = {
         "wss": os.getenv("WSS_ARBITRUM"),
         "aave_pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
         "uniswap_router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-        "curve_router": "0x0000000000000000000000000000000000000000",
+        "curve_router": "0x0000000000000000000000000000000000000000",  # Curve not deployed on Arbitrum
         "native": "ETH"
     },
     10: {
@@ -39,24 +43,24 @@ CHAINS = {
         "wss": os.getenv("WSS_OPTIMISM"),
         "aave_pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
         "uniswap_router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-        "curve_router": "0x0000000000000000000000000000000000000000",
+        "curve_router": "0x0000000000000000000000000000000000000000",  # Curve not deployed on Optimism
         "native": "ETH"
     },
     8453: {
         "name": "base",
         "rpc": os.getenv("RPC_BASE"),
         "wss": os.getenv("WSS_BASE"),
-        "aave_pool": "0x0000000000000000000000000000000000000000",
+        "aave_pool": "0x0000000000000000000000000000000000000000",  # Aave not available on Base
         "uniswap_router": "0x2626664c2603336E57B271c5C0b26F421741e481",
-        "curve_router": "0x0000000000000000000000000000000000000000",
+        "curve_router": "0x0000000000000000000000000000000000000000",  # Curve not deployed on Base
         "native": "ETH"
     },
     56: {
         "name": "bsc",
         "rpc": os.getenv("RPC_BSC"),
         "wss": os.getenv("WSS_BSC"),
-        "aave_pool": "0x0000000000000000000000000000000000000000",
-        "uniswap_router": "0x0000000000000000000000000000000000000000",
+        "aave_pool": "0x0000000000000000000000000000000000000000",  # Aave not available on BSC
+        "uniswap_router": "0x0000000000000000000000000000000000000000",  # Uniswap not deployed on BSC (use PancakeSwap)
         "pancake_router": "0x13f4EA83D0bd40E75C8222255bc855a974568Dd4",
         "native": "BNB"
     },
@@ -65,7 +69,7 @@ CHAINS = {
         "rpc": os.getenv("RPC_AVALANCHE"),
         "wss": os.getenv("WSS_AVALANCHE"),
         "aave_pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
-        "uniswap_router": "0x0000000000000000000000000000000000000000",
+        "uniswap_router": "0x0000000000000000000000000000000000000000",  # Uniswap not deployed on Avalanche (use TraderJoe)
         "traderjoe_router": "0x60aE616a2155Ee3d9A68541Ba4544862310933d4",
         "native": "AVAX"
     },
@@ -73,8 +77,8 @@ CHAINS = {
         "name": "fantom",
         "rpc": os.getenv("RPC_FANTOM"),
         "wss": None,
-        "aave_pool": "0x0000000000000000000000000000000000000000",
-        "uniswap_router": "0x0000000000000000000000000000000000000000",
+        "aave_pool": "0x0000000000000000000000000000000000000000",  # Aave not available on Fantom
+        "uniswap_router": "0x0000000000000000000000000000000000000000",  # Uniswap not deployed on Fantom (use SpookySwap)
         "spookyswap_router": "0xF491e7B69E4244ad4002BC14e878a34207E38c29",
         "native": "FTM"
     },
@@ -82,33 +86,33 @@ CHAINS = {
         "name": "linea",
         "rpc": os.getenv("RPC_LINEA"),
         "wss": os.getenv("WSS_LINEA"),
-        "aave_pool": "0x0000000000000000000000000000000000000000",
-        "uniswap_router": "0x0000000000000000000000000000000000000000",
-        "syncswap_router": "0x0000000000000000000000000000000000000000",
+        "aave_pool": "0x0000000000000000000000000000000000000000",  # Aave not available on Linea
+        "uniswap_router": "0x0000000000000000000000000000000000000000",  # Uniswap not deployed on Linea
+        "syncswap_router": "0x0000000000000000000000000000000000000000",  # SyncSwap not configured for Linea
         "native": "ETH"
     },
     534352: {
         "name": "scroll",
         "rpc": os.getenv("RPC_SCROLL"),
         "wss": os.getenv("WSS_SCROLL"),
-        "aave_pool": "0x0000000000000000000000000000000000000000",
-        "uniswap_router": "0x0000000000000000000000000000000000000000",
+        "aave_pool": "0x0000000000000000000000000000000000000000",  # Aave not available on Scroll
+        "uniswap_router": "0x0000000000000000000000000000000000000000",  # Uniswap not deployed on Scroll
         "native": "ETH"
     },
     5000: {
         "name": "mantle",
         "rpc": os.getenv("RPC_MANTLE"),
         "wss": os.getenv("WSS_MANTLE"),
-        "aave_pool": "0x0000000000000000000000000000000000000000",
-        "uniswap_router": "0x0000000000000000000000000000000000000000",
+        "aave_pool": "0x0000000000000000000000000000000000000000",  # Aave not available on Mantle
+        "uniswap_router": "0x0000000000000000000000000000000000000000",  # Uniswap not deployed on Mantle
         "native": "MNT"
     },
     324: {
         "name": "zksync",
         "rpc": os.getenv("RPC_ZKSYNC"),
         "wss": os.getenv("WSS_ZKSYNC"),
-        "aave_pool": "0x0000000000000000000000000000000000000000",
-        "uniswap_router": "0x0000000000000000000000000000000000000000",
+        "aave_pool": "0x0000000000000000000000000000000000000000",  # Aave not available on zkSync
+        "uniswap_router": "0x0000000000000000000000000000000000000000",  # Uniswap not deployed on zkSync (use SyncSwap)
         "syncswap_router": "0x2da10A1e27bF85cEdD8FFb1AbBe97e53391C0295",
         "native": "ETH"
     },
@@ -116,17 +120,17 @@ CHAINS = {
         "name": "blast",
         "rpc": os.getenv("RPC_BLAST"),
         "wss": os.getenv("WSS_BLAST"),
-        "aave_pool": "0x0000000000000000000000000000000000000000",
-        "uniswap_router": "0x0000000000000000000000000000000000000000",
-        "thruster_router": "0x0000000000000000000000000000000000000000",
+        "aave_pool": "0x0000000000000000000000000000000000000000",  # Aave not available on Blast
+        "uniswap_router": "0x0000000000000000000000000000000000000000",  # Uniswap not deployed on Blast
+        "thruster_router": "0x0000000000000000000000000000000000000000",  # Thruster not configured for Blast
         "native": "ETH"
     },
     42220: {
         "name": "celo",
         "rpc": os.getenv("RPC_CELO"),
         "wss": None,
-        "aave_pool": "0x0000000000000000000000000000000000000000",
-        "uniswap_router": "0x0000000000000000000000000000000000000000",
+        "aave_pool": "0x0000000000000000000000000000000000000000",  # Aave not available on Celo
+        "uniswap_router": "0x0000000000000000000000000000000000000000",  # Uniswap not deployed on Celo (use Ubeswap)
         "ubeswap_router": "0xE3D8bd6Aed4F159bc8000a9cD47CffDb95F96121",
         "native": "CELO"
     },
@@ -134,9 +138,9 @@ CHAINS = {
         "name": "opbnb",
         "rpc": os.getenv("RPC_OPBNB"),
         "wss": os.getenv("WSS_OPBNB"),
-        "aave_pool": "0x0000000000000000000000000000000000000000",
-        "uniswap_router": "0x0000000000000000000000000000000000000000",
-        "pancake_router": "0x0000000000000000000000000000000000000000",
+        "aave_pool": "0x0000000000000000000000000000000000000000",  # Aave not available on opBNB
+        "uniswap_router": "0x0000000000000000000000000000000000000000",  # Uniswap not deployed on opBNB
+        "pancake_router": "0x0000000000000000000000000000000000000000",  # PancakeSwap not configured for opBNB
         "native": "BNB"
     }
 }
