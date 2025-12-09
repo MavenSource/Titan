@@ -1,17 +1,28 @@
 """
 Bridge Oracle - Cross-chain price oracle and fee estimation
+
+Enhanced with Li.Fi integration for intent-based bridging support.
+Provides accurate timing estimates for different bridge protocols including
+solver-based (intent-based) bridges like Across, Stargate, and Hop.
 """
 from routing.bridge_aggregator import BridgeAggregator
+from routing.lifi_wrapper import LiFiWrapper
 from decimal import Decimal
 
 class BridgeOracle:
     """
     Provides cross-chain pricing data and bridge fee estimates.
     Acts as an oracle for cross-chain arbitrage opportunities.
+    
+    Enhanced with Li.Fi wrapper for:
+    - Intent-based bridge detection (Across, Stargate, Hop)
+    - Accurate timing estimates (30-60s for intent-based vs 10-30min for traditional)
+    - Solver liquidity verification
     """
     
     def __init__(self, min_profit_threshold_usd=5.0):
         self.aggregator = BridgeAggregator()
+        self.lifi = LiFiWrapper()
         self.min_profit_threshold_usd = Decimal(str(min_profit_threshold_usd))
     
     def get_bridge_cost(self, src_chain, dst_chain, token, amount):
@@ -62,28 +73,33 @@ class BridgeOracle:
         """
         Estimate bridge completion time based on bridge type.
         
+        Updated with accurate timing for intent-based bridges:
+        - Intent-based (solver network): 30-120 seconds
+        - Traditional (validator-based): 5-20 minutes
+        
         Args:
             bridge_name (str): Name of the bridge protocol
             
         Returns:
             int: Estimated time in seconds
         """
-        time_estimates = {
-            'stargate': 300,     # 5 minutes
-            'across': 180,       # 3 minutes
-            'hop': 600,          # 10 minutes
-            'synapse': 900,      # 15 minutes
-            'cbridge': 1200,     # 20 minutes
-            'multichain': 600,   # 10 minutes
-            'default': 600       # 10 minutes default
-        }
+        # Use LiFi wrapper for accurate estimates
+        return self.lifi.estimate_bridge_time(bridge_name)
+    
+    def is_intent_based(self, bridge_name):
+        """
+        Check if a bridge uses intent-based architecture.
         
-        bridge_lower = bridge_name.lower()
-        for key, time in time_estimates.items():
-            if key in bridge_lower:
-                return time
+        Intent-based bridges (Across, Stargate, Hop) use market maker solvers
+        who advance liquidity instantly, making them ideal for arbitrage.
         
-        return time_estimates['default']
+        Args:
+            bridge_name (str): Name of the bridge protocol
+            
+        Returns:
+            bool: True if intent-based (fast), False if traditional (slow)
+        """
+        return self.lifi.is_intent_based_bridge(bridge_name)
     
     def is_bridge_profitable(self, src_price, dst_price, bridge_fee_usd, amount_usd):
         """

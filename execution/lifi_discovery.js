@@ -59,6 +59,7 @@ class LifiDiscovery {
   /**
    * Step 3: Verify a specific Connection (e.g. USDC Poly -> USDC Arb)
    * Used to "Pre-Validate" a route before the Python Brain scans it.
+   * This checks if intent-based bridges (solvers) can handle the route.
    */
   async verifyConnection(fromChain, toChain, token) {
     console.log(`🔌 Verifying connection: ${fromChain} -> ${toChain} [${token}]...`);
@@ -67,21 +68,93 @@ class LifiDiscovery {
         fromChain,
         toChain,
         fromToken: token,
-        toToken: token, // Same asset (Arbitrage)
+        toToken: token, // Same asset (Arbitrage use case)
       };
 
       const connections = await getConnections(request);
       
       if (connections.connections.length > 0) {
+        const intentBasedBridges = ['across', 'stargate', 'hop'];
+        const hasIntentBased = connections.connections.some(conn => 
+          intentBasedBridges.includes(conn.tool?.toLowerCase())
+        );
+        
         console.log(`   ✅ Valid Path! Found ${connections.connections.length} routes.`);
-        return true;
+        if (hasIntentBased) {
+          console.log(`   🚀 Intent-based bridge available (fast settlement)`);
+        }
+        return {
+          success: true,
+          routeCount: connections.connections.length,
+          hasIntentBased: hasIntentBased,
+          connections: connections.connections
+        };
       } else {
         console.log(`   ⚠️ No route found.`);
-        return false;
+        return {
+          success: false,
+          routeCount: 0,
+          hasIntentBased: false
+        };
       }
     } catch (error) {
       console.error('   ❌ Connection Check Error:', error.message);
-      return false;
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Check solver liquidity for intent-based bridges.
+   * Estimates if solvers have enough capital to handle the trade size.
+   */
+  async checkSolverLiquidity(fromChain, toChain, token, amount) {
+    console.log(`💰 Checking solver liquidity for ${amount} on ${fromChain} -> ${toChain}...`);
+    try {
+      // Get a quote to check if solvers can handle this amount
+      const { getRoutes } = require('@lifi/sdk');
+      const routeResponse = await getRoutes({
+        fromChainId: fromChain,
+        toChainId: toChain,
+        fromTokenAddress: token,
+        toTokenAddress: token,
+        fromAmount: amount,
+        options: {
+          integrator: 'Apex-Omega-Titan',
+          order: 'FASTEST',
+          bridges: {
+            allow: ['across', 'stargate', 'hop'] // Intent-based only
+          }
+        }
+      });
+
+      if (routeResponse.routes && routeResponse.routes.length > 0) {
+        const route = routeResponse.routes[0];
+        console.log(`   ✅ Sufficient liquidity available`);
+        console.log(`   Bridge: ${route.steps[0].tool}`);
+        console.log(`   Output: ${route.toAmount}`);
+        return {
+          success: true,
+          sufficient: true,
+          bridge: route.steps[0].tool,
+          expectedOutput: route.toAmount
+        };
+      } else {
+        console.log(`   ⚠️ No solvers available for this amount`);
+        return {
+          success: true,
+          sufficient: false,
+          reason: 'Insufficient solver liquidity'
+        };
+      }
+    } catch (error) {
+      console.error('   ❌ Liquidity check failed:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 

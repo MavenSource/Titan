@@ -5,6 +5,7 @@ const { GasManager } = require('./gas_manager');
 const { BloxRouteManager } = require('./bloxroute_manager');
 const { ParaSwapManager } = require('./paraswap_manager');
 const { OmniSDKEngine } = require('./omniarb_sdk_engine');
+const { LifiExecutionEngine } = require('./lifi_manager');
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const EXECUTOR_ADDR = process.env.EXECUTOR_ADDRESS;
@@ -33,6 +34,18 @@ class TitanBot {
         this.redis = createClient({ url: REDIS_URL });
         this.bloxRoute = new BloxRouteManager();
         this.activeProviders = {};
+        this.crossChainEnabled = this._parseBooleanEnv(process.env.ENABLE_CROSS_CHAIN);
+    }
+    
+    /**
+     * Parse boolean environment variables safely
+     * @param {string} value - Environment variable value
+     * @returns {boolean} - Parsed boolean value
+     */
+    _parseBooleanEnv(value) {
+        if (!value) return false;
+        const normalized = value.toLowerCase().trim();
+        return normalized === 'true' || normalized === '1' || normalized === 'yes';
     }
 
     async init() {
@@ -155,6 +168,12 @@ class TitanBot {
             console.log(`\n🎯 Processing trade signal for chain ${chainId} at ${new Date().toISOString()}`);
             console.log(`   Token: ${signal.token}, Amount: ${signal.amount}`);
             console.log(`   Expected Profit: $${signal.metrics?.profit_usd || 'N/A'}`);
+            console.log(`   Strategy Type: ${signal.strategy_type || 'SINGLE_CHAIN'}`);
+            
+            // Check if this is a cross-chain arbitrage signal
+            if (signal.strategy_type === 'CROSS_CHAIN' && this.crossChainEnabled) {
+                return await this.executeCrossChainArbitrage(signal);
+            }
             
             const provider = new ethers.JsonRpcProvider(RPC_MAP[chainId]);
             const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
@@ -319,6 +338,132 @@ class TitanBot {
         } finally {
             const duration = Date.now() - startTime;
             console.log(`⏱️ Execution completed in ${duration}ms with status: ${executionStatus}\n`);
+        }
+    }
+
+    /**
+     * Execute cross-chain arbitrage using Li.Fi for intent-based bridging.
+     * 
+     * Flow:
+     * 1. Bridge assets from source chain to destination chain (via Li.Fi)
+     * 2. Wait for bridge completion (intent-based = ~60s)
+     * 3. Execute arbitrage trade on destination chain
+     * 4. Optional: Bridge profits back or leave on destination chain
+     */
+    async executeCrossChainArbitrage(signal) {
+        const startTime = Date.now();
+        console.log('\n🌉 CROSS-CHAIN ARBITRAGE EXECUTION');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        try {
+            // Validate cross-chain signal structure
+            if (!signal.source_chain || !signal.dest_chain) {
+                console.error('❌ Invalid cross-chain signal: missing source/dest chains');
+                return;
+            }
+
+            const srcChain = signal.source_chain;
+            const dstChain = signal.dest_chain;
+            const token = signal.token;
+            const amount = signal.amount;
+
+            // Validate chain IDs
+            if (!RPC_MAP[srcChain] || !RPC_MAP[dstChain]) {
+                console.error(`❌ Unsupported chain ID: ${srcChain} or ${dstChain}`);
+                return;
+            }
+
+            // Validate token address
+            if (!token || !ethers.utils.isAddress(token)) {
+                console.error(`❌ Invalid token address: ${token}`);
+                return;
+            }
+
+            // Validate amount
+            if (
+                amount === undefined ||
+                amount === null ||
+                isNaN(amount) ||
+                (typeof amount === 'string' && amount.trim() === '') ||
+                BigInt(amount) <= 0n
+            ) {
+                console.error(`❌ Invalid amount: ${amount}`);
+                return;
+            }
+            
+            console.log(`   Source Chain: ${srcChain}`);
+            console.log(`   Destination Chain: ${dstChain}`);
+            console.log(`   Token: ${token}`);
+            console.log(`   Amount: ${amount}`);
+            console.log(`   Expected Bridge Time: ${signal.bridge_time || '60'}s`);
+            console.log(`   Expected Profit: $${signal.metrics?.profit_usd || 'N/A'}`);
+            
+            // Step 1: Bridge assets using Li.Fi
+            console.log('\n📤 Step 1: Initiating bridge transaction via Li.Fi...');
+            const bridgeResult = await LifiExecutionEngine.bridgeAssets(
+                srcChain,
+                dstChain,
+                token,
+                signal.dest_token || token, // Use same token for arbitrage
+                amount,
+                {
+                    order: 'FASTEST',      // Optimize for speed
+                    slippage: 0.005,       // 0.5% slippage
+                    preferIntentBased: true // Use Across/Stargate for speed
+                }
+            );
+            
+            if (!bridgeResult.success) {
+                console.error(`❌ Bridge initiation failed: ${bridgeResult.error}`);
+                return;
+            }
+            
+            console.log(`✅ Bridge transaction submitted!`);
+            console.log(`   TX Hash: ${bridgeResult.transactionHash}`);
+            console.log(`   Bridge: ${bridgeResult.bridgeName}`);
+            console.log(`   Est. Time: ${bridgeResult.estimatedTime}s`);
+            console.log(`   Gas Cost: $${bridgeResult.gasCostUSD}`);
+            
+            // Step 2: Monitor bridge completion
+            console.log(`\n⏳ Step 2: Monitoring bridge completion...`);
+            const completionResult = await LifiExecutionEngine.waitForCompletion(
+                bridgeResult.transactionHash,
+                srcChain,
+                dstChain,
+                600,  // 10 minute max wait
+                5     // Check every 5 seconds
+            );
+            
+            if (!completionResult.success) {
+                console.error(`❌ Bridge failed or timed out: ${completionResult.error}`);
+                return;
+            }
+            
+            console.log(`✅ Bridge completed successfully!`);
+            console.log(`   Completion Time: ${completionResult.completedAt}`);
+            
+            // Step 3: Execute arbitrage trade on destination chain
+            console.log(`\n💹 Step 3: Executing arbitrage trade on destination chain...`);
+            
+            // Create a new signal for destination chain execution
+            const dstSignal = {
+                ...signal,
+                chainId: dstChain,
+                token: signal.dest_token || token,
+                strategy_type: 'SINGLE_CHAIN' // Execute as normal trade now
+            };
+            
+            // Execute the trade on destination chain
+            await this.executeTrade(dstSignal);
+            
+            const totalDuration = Date.now() - startTime;
+            console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log(`✅ CROSS-CHAIN ARBITRAGE COMPLETED in ${totalDuration}ms`);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+            
+        } catch (error) {
+            console.error('❌ Cross-chain arbitrage failed:', error.message);
+            console.error(error.stack);
         }
     }
     
