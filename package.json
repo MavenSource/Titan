@@ -15,7 +15,8 @@
     "audit": "python3 audit_system.py",
     "health": "redis-cli ping && node -v && python3 --version",
     "clean": "rm -rf artifacts cache typechain typechain-types",
-    "setup": "npm ci && pip3 install -r requirements.txt && npx hardhat compile"
+    "setup": "npm ci && pip3 install -r requirements.txt && npx hardhat compile",
+    "postinstall": "echo 'Note: Use npm install for initial setup or dependency changes. Use npm ci for clean reproducible installs (CI/production).'"
   },
   "keywords": [
     "defi",

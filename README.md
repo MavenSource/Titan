@@ -568,11 +568,17 @@ cd Titan
 #### 2. Install Node.js Dependencies
 
 ```bash
-npm install --legacy-peer-deps
+# For initial setup or when modifying dependencies
+npm install
+
+# For clean, reproducible installs (recommended for CI/production)
+npm ci
 ```
 
+> **Note**: The `overrides` block in `package.json` resolves peer dependency conflicts automatically. Use `npm install` for development and `npm ci` for reproducible builds.
+
 This installs:
-- ethers.js (blockchain interaction)
+- ethers.js v6.16.0 (blockchain interaction, unified via overrides)
 - @lifi/sdk (bridge aggregation)
 - @flashbots/ethers-provider-bundle (MEV protection)
 - @paraswap/sdk (DEX aggregation)

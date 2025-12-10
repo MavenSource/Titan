@@ -224,12 +224,22 @@ start_titan_full.bat
 
 #### Node.js Dependencies
 
+**For initial setup or when modifying dependencies:**
+
 ```bash
 npm install
 ```
 
+**For clean, reproducible installs (CI/production):**
+
+```bash
+npm ci
+```
+
+> **Note**: The `overrides` block in `package.json` ensures peer dependency conflicts are resolved automatically during `npm install`. Use `npm ci` for strict, lockfile-based installs in CI environments or when you want reproducible builds.
+
 This installs:
-- `ethers@6.7.1` - Blockchain interaction
+- `ethers@6.16.0` - Blockchain interaction (unified via overrides)
 - `@openzeppelin/contracts@5.4.0` - Smart contract utilities
 - `@paraswap/sdk@7.3.1` - DEX aggregation
 - `axios@1.6.7` - HTTP requests
@@ -534,9 +544,13 @@ npx hardhat run scripts/deploy.js --network polygon --gas 5000000
 
 **Solution**:
 ```bash
-# Reinstall Node.js dependencies
+# For development (initial setup or dependency changes)
 rm -rf node_modules package-lock.json
 npm install
+
+# For clean rebuild (production/CI)
+rm -rf node_modules
+npm ci
 
 # Reinstall Python dependencies
 pip3 install -r requirements.txt --force-reinstall
