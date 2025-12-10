@@ -193,8 +193,7 @@ class OmniBrain:
 
     def _evaluate_and_signal(self, opp, chain_gas_map):
         """
-        Worker function: Validates Liquidity, Simulates Price, Calculates Profit, Broadcasts.
-        Enhanced with comprehensive safety checks and error handling.
+        FIXED VERSION: Route encoding now matches simulation
         """
         try:
             src_chain = opp['src_chain']
@@ -205,13 +204,13 @@ class OmniBrain:
             
             # 1. SAFETY CHECK (Liquidity Guard)
             commander = TitanCommander(src_chain)
-            target_trade_usd = 10000 # Start ambition
+            target_trade_usd = 10000
             target_raw = target_trade_usd * (10**decimals)
             
             safe_amount = commander.optimize_loan_size(token_addr, target_raw, decimals)
             if safe_amount == 0:
                 logger.debug(f"Insufficient liquidity for {token_sym} on chain {src_chain}")
-                return # Not enough liquidity
+                return
 
             # 2. GET BRIDGE QUOTE (Cost 1) with validation
             try:
@@ -223,14 +222,12 @@ class OmniBrain:
                     logger.debug(f"No bridge route available for {token_sym}: {src_chain} -> {dst_chain}")
                     return
                     
-                # Validate bridge quote
                 if 'fee_usd' not in quote or 'est_output' not in quote:
                     logger.warning(f"Invalid bridge quote structure for {token_sym}")
                     return
                     
                 fee_bridge_usd = Decimal(str(quote.get('fee_usd', 0)))
                 
-                # Check if bridge fee is reasonable (not more than 5% of trade value)
                 max_bridge_fee = Decimal(target_trade_usd) * Decimal("0.05")
                 if fee_bridge_usd > max_bridge_fee:
                     logger.warning(f"Bridge fee too high: ${fee_bridge_usd} for {token_sym}")
@@ -240,7 +237,7 @@ class OmniBrain:
                 logger.error(f"Bridge quote failed for {token_sym}: {e}")
                 return
 
-            # 3. GET REAL DEX PRICE (Revenue Simulation) with validation
+            # 3. GET REAL DEX PRICE (Revenue Simulation) - FIXED VERSION
             try:
                 w3 = self.web3_connections.get(src_chain)
                 if not w3:
@@ -255,36 +252,51 @@ class OmniBrain:
                     logger.debug(f"WETH not available on chain {src_chain}")
                     return
 
-                # Simulate: Sell Token -> Buy WETH -> Sell WETH -> Buy Token
-                # This checks if we can make profit locally before bridging, or prepare for bridge
-                # For this Titan Build, let's simulate a direct Arb on Source:
-                # Buy WETH on Uni, Sell WETH on Curve
+                # === SIMULATION STEP 1: Token → WETH (Uniswap) ===
+                step1_out = pricer.get_univ3_price(
+                    token_in=token_addr,      # Start with flash loan token
+                    token_out=weth_addr,      # Convert to WETH
+                    amount=safe_amount,
+                    fee=500
+                )
                 
-                step1_out = pricer.get_univ3_price(token_addr, weth_addr, safe_amount, 500)
                 if step1_out == 0:
-                    logger.debug(f"Step 1 simulation failed for {token_sym}")
+                    logger.debug(f"Step 1 simulation failed for {token_sym} → WETH")
                     return
                 
-                # Check if Curve router exists for this chain
+                logger.debug(f"Step 1: {safe_amount} {token_sym} → {step1_out} WETH")
+                
+                # === SIMULATION STEP 2: WETH → Token (Curve) ===
+                # Check if Curve router exists
                 curve_router = CHAINS[src_chain].get('curve_router')
                 if not curve_router or curve_router == "0x0000000000000000000000000000000000000000":
                     logger.debug(f"Curve not available on chain {src_chain}")
                     return
-                    
-                step2_out = pricer.get_curve_price(curve_router, 2, 1, step1_out) # Mock indices
+                
+                # FIX #2: Use new method signature with token addresses
+                step2_out = pricer.get_curve_price(
+                    pool_address=curve_router,
+                    token_in=weth_addr,       # We have WETH from step 1
+                    token_out=token_addr,     # Convert back to original token
+                    amount=step1_out
+                )
                 
                 if step2_out == 0:
-                    logger.debug(f"Step 2 simulation failed for {token_sym}")
+                    logger.debug(f"Step 2 simulation failed for WETH → {token_sym}")
                     return
                 
-                # Convert results to Decimal USD for profit engine
-                # (Simplification: assume stablecoin loops for direct USD comparison)
+                logger.debug(f"Step 2: {step1_out} WETH → {step2_out} {token_sym}")
+                
+                # Verify profitability
+                if step2_out <= safe_amount:
+                    logger.debug(f"Not profitable: started {safe_amount}, ended {step2_out}")
+                    return
+                
+                # Convert to USD for profit calculation
                 revenue_usd = Decimal(step2_out) / Decimal(10**decimals)
                 cost_usd = Decimal(safe_amount) / Decimal(10**decimals)
                 
-                # Calculate realistic gas cost
-                # Approximation: gas_price_gwei * gas_limit * ETH_price_USD / 1e9
-                # Using conservative estimates: 500k gas limit, $2000 ETH price
+                # Calculate gas cost
                 gas_price_gwei = chain_gas_map.get(src_chain, 0)
                 gas_cost_usd = Decimal(str(gas_price_gwei)) * Decimal("500000") * Decimal("2000") / Decimal("1e9")
                 
@@ -292,22 +304,21 @@ class OmniBrain:
                 logger.error(f"DEX price simulation failed for {token_sym}: {e}")
                 return
 
-            # 4. PROFIT CALCULATION with enhanced validation
+            # 4. PROFIT CALCULATION
             try:
                 result = self.profit_engine.calculate_enhanced_profit(
                     amount=cost_usd,
                     amount_out=revenue_usd,
-                    bridge_fee_usd=0, # Intra-chain has no bridge fee
+                    bridge_fee_usd=0,  # Intra-chain
                     gas_cost_usd=gas_cost_usd
                 )
                 
-                # Validate profit meets minimum threshold
                 if not result['is_profitable']:
                     logger.debug(f"Not profitable: {token_sym} (Net: ${result['net_profit']:.2f})")
                     return
                 
                 if result['net_profit'] < self.MIN_PROFIT_THRESHOLD_USD:
-                    logger.debug(f"Profit below threshold: {token_sym} (${result['net_profit']:.2f} < ${self.MIN_PROFIT_THRESHOLD_USD})")
+                    logger.debug(f"Profit below threshold: {token_sym} (${result['net_profit']:.2f})")
                     return
 
                 logger.info(f"💰 PROFIT FOUND: {token_sym} | Net: ${result['net_profit']:.2f}")
@@ -316,16 +327,14 @@ class OmniBrain:
                 logger.error(f"Profit calculation failed for {token_sym}: {e}")
                 return
 
-            # 5. PAYLOAD CONSTRUCTION with validation
+            # 5. PAYLOAD CONSTRUCTION - FIXED VERSION
             try:
                 chain_conf = CHAINS.get(src_chain)
                 if not chain_conf:
                     logger.error(f"Chain config not found for {src_chain}")
                     return
-                    
-                protocols = [1, 2] # Uni, Curve
                 
-                # Validate routers exist and are not zero addresses
+                # Validate routers
                 uni_router = chain_conf.get('uniswap_router', "0x0000000000000000000000000000000000000000")
                 curve_router = chain_conf.get('curve_router', "0x0000000000000000000000000000000000000000")
                 
@@ -335,38 +344,78 @@ class OmniBrain:
                 if curve_router == "0x0000000000000000000000000000000000000000":
                     logger.warning(f"Curve router not configured for chain {src_chain}")
                     return
-                    
-                routers = [uni_router, curve_router]
-                path = [weth_addr, token_addr]
-                extras = [
-                    "0x" + encode(['uint24'], [500]).hex(),
-                    "0x" + encode(['int128', 'int128'], [2, 1]).hex()
+                
+                # === FIX #2: CORRECT ROUTE ENCODING ===
+                
+                # Get Curve indices using new method
+                curve_indices = pricer.get_curve_indices(
+                    pool_address=curve_router,
+                    token_in=weth_addr,
+                    token_out=token_addr
+                )
+                
+                if curve_indices[0] is None:
+                    logger.error(f"Cannot resolve Curve indices for route")
+                    return
+                
+                # Protocol IDs
+                protocols = [
+                    1,  # Uniswap V3
+                    2   # Curve
                 ]
+                
+                # Router addresses
+                routers = [
+                    uni_router,
+                    curve_router
+                ]
+                
+                # === CRITICAL FIX: Path represents OUTPUT of each step ===
+                # Step 1: Token → WETH, output is WETH
+                # Step 2: WETH → Token, output is Token
+                path = [
+                    weth_addr,    # Output of protocol[0]
+                    token_addr    # Output of protocol[1]
+                ]
+                
+                # Protocol-specific parameters
+                extras = [
+                    # UniV3: fee tier (500 = 0.05%)
+                    "0x" + encode(['uint24'], [500]).hex(),
+                    
+                    # Curve: indices (i=WETH, j=Token)
+                    "0x" + encode(['int128', 'int128'], curve_indices).hex()
+                ]
+                
+                # Log the complete route for verification
+                logger.info(f"📋 Route constructed:")
+                logger.info(f"   Flash loan: {safe_amount} {token_sym}")
+                logger.info(f"   Step 1: {token_sym} → WETH via UniV3 (fee: 500)")
+                logger.info(f"   Step 2: WETH → {token_sym} via Curve (i={curve_indices[0]}, j={curve_indices[1]})")
+                logger.info(f"   Expected profit: ${result['net_profit']:.2f}")
+                
             except Exception as e:
                 logger.error(f"Payload construction failed for {token_sym}: {e}")
                 return
 
-            # 6. AI TUNING with validation
+            # 6. AI TUNING
             try:
                 exec_params = self.optimizer.recommend_parameters(src_chain, "MEDIUM")
                 
-                # Validate AI parameters are within safe bounds
+                # Validate AI parameters
                 if exec_params.get('slippage', 0) > self.MAX_SLIPPAGE_BPS:
                     logger.warning(f"AI slippage {exec_params['slippage']} exceeds max {self.MAX_SLIPPAGE_BPS}, capping")
                     exec_params['slippage'] = self.MAX_SLIPPAGE_BPS
-                    
-                # Validate priority fee
-                max_priority = float(self.MAX_GAS_PRICE_GWEI) / 2  # Priority fee should be reasonable
+                
+                max_priority = float(self.MAX_GAS_PRICE_GWEI) / 2
                 if exec_params.get('priority', 0) > max_priority:
-                    logger.warning(f"AI priority fee {exec_params['priority']} too high, capping to {max_priority}")
                     exec_params['priority'] = int(max_priority)
                     
             except Exception as e:
                 logger.error(f"AI parameter tuning failed: {e}")
-                # Use safe defaults
                 exec_params = {"slippage": 50, "priority": 30}
 
-            # 7. BROADCAST with error handling
+            # 7. BROADCAST
             signal = {
                 "type": "INTRA_CHAIN",
                 "chainId": src_chain,
@@ -380,7 +429,9 @@ class OmniBrain:
                 "metrics": {
                     "profit_usd": float(result['net_profit']),
                     "fees_usd": float(result['total_fees']),
-                    "gas_price_gwei": float(chain_gas_map.get(src_chain, 0))
+                    "gas_price_gwei": float(chain_gas_map.get(src_chain, 0)),
+                    "step1_output": step1_out,
+                    "step2_output": step2_out
                 },
                 "timestamp": datetime.now().isoformat()
             }
@@ -388,18 +439,14 @@ class OmniBrain:
             try:
                 if self.redis_client:
                     self.redis_client.publish("trade_signals", json.dumps(signal))
-                    logger.info(f"⚡ SIGNAL BROADCASTED TO REDIS for {token_sym}")
-                    self.consecutive_failures = 0  # Reset failure counter on success
-                else:
-                    logger.error(f"❌ Redis client not available, cannot broadcast signal")
-                    self.consecutive_failures += 1
+                    logger.info(f"⚡ SIGNAL BROADCASTED for {token_sym}")
+                    self.consecutive_failures = 0
             except redis.ConnectionError as e:
-                logger.error(f"❌ Redis connection error: {e}. Will retry on next cycle.")
+                logger.error(f"Redis connection error: {e}")
                 self.consecutive_failures += 1
-                # Mark for reconnection but don't block here
                 self.redis_client = None
             except Exception as e:
-                logger.error(f"❌ Signal broadcast error: {e}")
+                logger.error(f"Signal broadcast error: {e}")
                 self.consecutive_failures += 1
                 
         except Exception as e:

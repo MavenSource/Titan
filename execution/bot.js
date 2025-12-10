@@ -247,15 +247,29 @@ class TitanBot {
                     1, signal.token, signal.amount, routeData, { ...fees }
                 );
                 
-                // Estimate gas limit
-                try {
-                    const gasLimit = await gasMgr.estimateGasLimit(txRequest);
-                    txRequest.gasLimit = gasLimit;
-                    console.log(`   Estimated gas: ${gasLimit.toString()}`);
-                } catch (e) {
-                    console.error('⚠️ Gas estimation failed:', e.message);
-                    // Use a safe default
-                    txRequest.gasLimit = 500000n;
+                // Create route info object for intelligent gas estimation
+                const routeInfo = {
+                    protocols: signal.protocols || [],
+                    routerCount: (signal.routers || []).length,
+                    hasParaSwap: signal.use_paraswap || false
+                };
+                
+                // Get gas limit with route-aware fallback
+                const gasLimit = await gasMgr.estimateGasWithBuffer(txRequest, routeInfo);
+                txRequest.gasLimit = gasLimit;
+                
+                // Calculate and log expected cost
+                const gasPrice = fees.maxFeePerGas || fees.gasPrice;
+                const estimatedCostUSD = gasMgr.estimateGasCostUSD(gasLimit, gasPrice);
+                
+                console.log(`   Gas limit: ${gasLimit.toString()}`);
+                console.log(`   Estimated cost: $${estimatedCostUSD.toFixed(2)}`);
+                
+                // Profit check with gas costs
+                const expectedProfit = signal.metrics?.profit_usd || 0;
+                if (expectedProfit < estimatedCostUSD * 2) {
+                    console.log(`⚠️ Profit margin too thin: $${expectedProfit} vs $${estimatedCostUSD.toFixed(2)} gas`);
+                    return;
                 }
                 
             } catch (e) {

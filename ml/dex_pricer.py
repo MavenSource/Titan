@@ -13,29 +13,7 @@ UNIV2_ABI = '[{"inputs":[{"internalType":"uint256","name":"amountIn","type":"uin
 UNIV3_ABI = '[{"inputs":[{"components":[{"internalType":"address","name":"tokenIn","type":"address"},{"internalType":"address","name":"tokenOut","type":"address"},{"internalType":"uint256","name":"amountIn","type":"uint256"},{"internalType":"uint24","name":"fee","type":"uint24"},{"internalType":"uint160","name":"sqrtPriceLimitX96","type":"uint160"}],"internalType":"struct IQuoterV2.QuoteExactInputSingleParams","name":"params","type":"tuple"}],"name":"quoteExactInputSingle","outputs":[{"internalType":"uint256","name":"amountOut","type":"uint256"},{"internalType":"uint160","name":"sqrtPriceX96After","type":"uint160"},{"internalType":"uint32","name":"initializedTicksCrossed","type":"uint32"},{"internalType":"uint256","name":"gasEstimate","type":"uint256"}],"stateMutability":"nonpayable","type":"function"}]'
 
 # Curve (get_dy and coins)
-CURVE_ABI = '''[
-    {
-        "stateMutability":"view",
-        "type":"function",
-        "name":"get_dy",
-        "inputs":[
-            {"name":"i","type":"int128"},
-            {"name":"j","type":"int128"},
-            {"name":"dx","type":"uint256"}
-        ],
-        "outputs":[{"name":"","type":"uint256"}]
-    },
-    {
-        "stateMutability":"view",
-        "type":"function",
-        "name":"coins",
-        "inputs":[{"name":"arg0","type":"uint256"}],
-        "outputs":[{"name":"","type":"address"}]
-    }
-]'''
-
-# Curve pools typically have 2-8 coins
-MAX_CURVE_COINS = 8
+CURVE_ABI = '[{"stateMutability":"view","type":"function","name":"get_dy","inputs":[{"name":"i","type":"int128"},{"name":"j","type":"int128"},{"name":"dx","type":"uint256"}],"outputs":[{"name":"","type":"uint256"}]},{"stateMutability":"view","type":"function","name":"coins","inputs":[{"name":"arg0","type":"uint256"}],"outputs":[{"name":"","type":"address"}]}]'
 
 class DexPricer:
     def __init__(self, w3: Web3, chain_id: int):
@@ -183,6 +161,80 @@ class DexPricer:
             return quote[0]
         except Exception as e:
             return 0
+
+    def get_curve_price(self, pool_address, token_in=None, token_out=None, amount=None, i=None, j=None):
+        """
+        Queries Curve Pool for price quote.
+        Supports two modes:
+        1. New mode: Pass token_in, token_out addresses (automatically resolves indices)
+        2. Legacy mode: Pass i, j indices directly
+        """
+        try:
+            contract = self.w3.eth.contract(address=pool_address, abi=CURVE_ABI)
+            
+            # Mode 1: Token addresses provided - resolve indices
+            if token_in is not None and token_out is not None:
+                indices = self.get_curve_indices(pool_address, token_in, token_out)
+                if indices[0] is None:
+                    logger.debug(f"Could not resolve Curve indices for {token_in} -> {token_out}")
+                    return 0
+                i, j = indices
+            
+            # Mode 2: Legacy - indices provided directly
+            elif i is None and j is None:
+                logger.error("get_curve_price requires either (token_in, token_out) or (i, j)")
+                return 0
+            
+            return contract.functions.get_dy(i, j, int(amount)).call()
+        except Exception as e:
+            logger.debug(f"Curve price query failed: {e}")
+            return 0
+
+    def get_curve_indices(self, pool_address, token_in, token_out):
+        """
+        Resolves token addresses to Curve pool indices.
+        Returns: (i, j) tuple where i is index of token_in and j is index of token_out
+        Returns: (None, None) if tokens not found in pool
+        """
+        try:
+            contract = self.w3.eth.contract(address=pool_address, abi=CURVE_ABI)
+            
+            # Normalize addresses to checksummed format
+            token_in = Web3.to_checksum_address(token_in)
+            token_out = Web3.to_checksum_address(token_out)
+            
+            # Iterate through pool coins to find indices
+            # Most Curve pools have 2-4 coins, so max iterations is small
+            i_idx = None
+            j_idx = None
+            
+            for idx in range(8):  # Max 8 coins in most Curve pools
+                try:
+                    coin = contract.functions.coins(idx).call()
+                    coin = Web3.to_checksum_address(coin)
+                    
+                    if coin == token_in:
+                        i_idx = idx
+                    if coin == token_out:
+                        j_idx = idx
+                    
+                    # Early exit if both found
+                    if i_idx is not None and j_idx is not None:
+                        return (i_idx, j_idx)
+                        
+                except Exception:
+                    # No more coins in pool
+                    break
+            
+            # If we get here, one or both tokens weren't found
+            if i_idx is None or j_idx is None:
+                logger.debug(f"Tokens not found in Curve pool: {token_in if i_idx is None else token_out}")
+            
+            return (i_idx, j_idx)
+            
+        except Exception as e:
+            logger.debug(f"Failed to get Curve indices: {e}")
+            return (None, None)
 
     def get_univ2_price(self, router_key, token_in, token_out, amount):
         """Queries UniV2 Forks - KEEP AS-IS"""
