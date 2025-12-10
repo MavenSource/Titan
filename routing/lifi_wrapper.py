@@ -73,7 +73,14 @@ class LiFiWrapper:
             # Validate inputs to prevent code injection
             if not isinstance(from_chain, int) or not isinstance(to_chain, int):
                 return None
-            if not from_token.startswith('0x') or not to_token.startswith('0x'):
+            # Validate tokens are proper Ethereum addresses (0x + 40 hex chars)
+            if not isinstance(from_token, str) or not from_token.startswith('0x') or len(from_token) != 42:
+                return None
+            if not all(c in '0123456789abcdefABCDEF' for c in from_token[2:]):
+                return None
+            if not isinstance(to_token, str) or not to_token.startswith('0x') or len(to_token) != 42:
+                return None
+            if not all(c in '0123456789abcdefABCDEF' for c in to_token[2:]):
                 return None
             if not amount.isdigit():
                 return None
@@ -145,7 +152,10 @@ class LiFiWrapper:
             # Validate inputs to prevent code injection
             if not isinstance(from_chain, int) or not isinstance(to_chain, int):
                 return False, False, 0
-            if not token.startswith('0x'):
+            # Validate token is a proper Ethereum address (0x + 40 hex chars)
+            if not isinstance(token, str) or not token.startswith('0x') or len(token) != 42:
+                return False, False, 0
+            if not all(c in '0123456789abcdefABCDEF' for c in token[2:]):
                 return False, False, 0
             
             # Build parameters as JSON for safe passing
