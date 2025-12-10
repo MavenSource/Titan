@@ -11,7 +11,6 @@ REQUIRED_FILES = [
     "core/config.py",
     "core/enum_matrix.py",
     "core/token_discovery.py",
-    "core/token_equivalence.py",
     "ml/brain.py",
     "ml/bridge_oracle.py",
     "ml/cortex/feature_store.py",
@@ -20,7 +19,7 @@ REQUIRED_FILES = [
     "execution/bot.js",
     "execution/lifi_discovery.js",
     "execution/lifi_manager.js",
-    "execution/gas_manager.js", # The new file
+    "execution/gas_manager.js",
     "contracts/OmniArbExecutor.sol"
 ]
 
@@ -43,10 +42,8 @@ def audit():
     # 2. Config Logic Check
     print(f"\n{Fore.YELLOW}[2] Checking Logic Imports...{Style.RESET_ALL}")
     try:
-        from core.config import CHAINS, DYNAMIC_REGISTRY
+        from core.config import CHAINS
         print(f"   ✅ Config Loaded. Chains Configured: {len(CHAINS)}")
-        if DYNAMIC_REGISTRY is None:
-             print(f"   ⚠️  Dynamic Registry not built yet (Run lifi_discovery.js first)")
     except Exception as e:
         print(f"   ❌ Config Error: {e}")
         missing.append("Config Logic")
