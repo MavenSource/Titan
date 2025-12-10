@@ -73,14 +73,7 @@ class LiFiWrapper:
             # Validate inputs to prevent code injection
             if not isinstance(from_chain, int) or not isinstance(to_chain, int):
                 return None
-            # Validate tokens are proper Ethereum addresses (0x + 40 hex chars)
-            if not isinstance(from_token, str) or not from_token.startswith('0x') or len(from_token) != 42:
-                return None
-            if not all(c in '0123456789abcdefABCDEF' for c in from_token[2:]):
-                return None
-            if not isinstance(to_token, str) or not to_token.startswith('0x') or len(to_token) != 42:
-                return None
-            if not all(c in '0123456789abcdefABCDEF' for c in to_token[2:]):
+            if not from_token.startswith('0x') or not to_token.startswith('0x'):
                 return None
             if not amount.isdigit():
                 return None
@@ -149,27 +142,10 @@ class LiFiWrapper:
             tuple: (route_exists: bool, has_intent_based: bool, route_count: int)
         """
         try:
-            # Validate inputs to prevent code injection
-            if not isinstance(from_chain, int) or not isinstance(to_chain, int):
-                return False, False, 0
-            # Validate token is a proper Ethereum address (0x + 40 hex chars)
-            if not isinstance(token, str) or not token.startswith('0x') or len(token) != 42:
-                return False, False, 0
-            if not all(c in '0123456789abcdefABCDEF' for c in token[2:]):
-                return False, False, 0
-            
-            # Build parameters as JSON for safe passing
-            params = json.dumps({
-                'from_chain': from_chain,
-                'to_chain': to_chain,
-                'token': token
-            })
-            
             script = f"""
             const {{ LifiDiscovery }} = require('./lifi_discovery');
             const discovery = new LifiDiscovery();
-            const params = {params};
-            discovery.verifyConnection(params.from_chain, params.to_chain, params.token)
+            discovery.verifyConnection({from_chain}, {to_chain}, '{token}')
                 .then(result => console.log(JSON.stringify(result)));
             """
             
