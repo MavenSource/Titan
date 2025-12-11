@@ -29,6 +29,23 @@ logger = logging.getLogger("TitanBrain")
 # Precision for financial math
 getcontext().prec = 28
 
+# Constants
+ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+def is_zero_address(address: str) -> bool:
+    """
+    Check if an address is the zero address (uninitialized/unavailable).
+    
+    Args:
+        address: Ethereum address to check
+        
+    Returns:
+        bool: True if address is zero address, False otherwise
+    """
+    if not address:
+        return True
+    return address.lower() == ZERO_ADDRESS.lower()
+
 class ProfitEngine:
     """
     Implements the Titan Master Profit Equation.
@@ -351,15 +368,15 @@ class OmniBrain:
                     logger.error(f"Chain config not found for {src_chain}")
                     return
                 
-                # Validate routers
-                uni_router = chain_conf.get('uniswap_router', "0x0000000000000000000000000000000000000000")
-                curve_router = chain_conf.get('curve_router', "0x0000000000000000000000000000000000000000")
+                # Validate routers are not zero addresses
+                uni_router = chain_conf.get('uniswap_router', ZERO_ADDRESS)
+                curve_router = chain_conf.get('curve_router', ZERO_ADDRESS)
                 
-                if uni_router == "0x0000000000000000000000000000000000000000":
-                    logger.warning(f"Uniswap router not configured for chain {src_chain}")
+                if is_zero_address(uni_router):
+                    logger.warning(f"Uniswap router not configured for chain {src_chain}, skipping opportunity")
                     return
-                if curve_router == "0x0000000000000000000000000000000000000000":
-                    logger.warning(f"Curve router not configured for chain {src_chain}")
+                if is_zero_address(curve_router):
+                    logger.warning(f"Curve router not configured for chain {src_chain}, skipping opportunity")
                     return
                 
                 # === FIX #2: CORRECT ROUTE ENCODING ===
