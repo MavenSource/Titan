@@ -5,6 +5,7 @@ import redis
 import rustworkx as rx
 import pandas as pd
 from web3 import Web3
+from web3.middleware import geth_poa_middleware
 from datetime import datetime
 from eth_abi import encode
 from decimal import Decimal, getcontext
@@ -31,6 +32,7 @@ getcontext().prec = 28
 
 # Constants
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+POA_CHAINS = [137, 56, 250, 42220]  # Polygon, BSC, Fantom, Celo - chains requiring PoA middleware
 
 def is_zero_address(address: str) -> bool:
     """
@@ -142,13 +144,12 @@ class OmniBrain:
             if config.get('rpc'):
                 try:
                     # Add request timeout to prevent hanging
-                    from web3.middleware import geth_poa_middleware
                     w3 = Web3(Web3.HTTPProvider(
                         config['rpc'],
                         request_kwargs={'timeout': 30}  # 30 second timeout for RPC calls
                     ))
-                    # Add PoA middleware for chains that need it (Polygon, BSC, etc.)
-                    if cid in [137, 56, 250, 42220]:  # PoA chains
+                    # Add PoA middleware for chains that need it
+                    if cid in POA_CHAINS:
                         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
                     self.web3_connections[cid] = w3
                     logger.debug(f"Web3 connection established for chain {cid}")
