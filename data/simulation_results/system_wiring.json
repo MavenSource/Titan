@@ -1,0 +1,51 @@
+{
+  "data_flow": {
+    "1_ingestion": [
+      "Multi-Chain RPC \u2192 OmniBrain",
+      "WebSocket Streaming \u2192 OmniBrain",
+      "DEX Pricer \u2192 OmniBrain"
+    ],
+    "2_analysis": [
+      "OmniBrain \u2192 ProfitEngine",
+      "ProfitEngine \u2192 MarketForecaster",
+      "MarketForecaster \u2192 QLearningAgent"
+    ],
+    "3_decision": [
+      "QLearningAgent \u2192 TitanCommander",
+      "TitanCommander \u2192 Redis Queue"
+    ],
+    "4_execution": [
+      "Redis Queue \u2192 TitanBot",
+      "TitanBot \u2192 OmniSDKEngine",
+      "OmniSDKEngine \u2192 OmniArbExecutor"
+    ],
+    "5_feedback": [
+      "TitanBot \u2192 FeatureStore",
+      "FeatureStore \u2192 QLearningAgent"
+    ]
+  },
+  "control_flow": {
+    "mainnet_orchestrator": [
+      "Controls PAPER vs LIVE mode",
+      "Manages component lifecycle",
+      "Coordinates ML training threads"
+    ],
+    "titan_commander": [
+      "Validates opportunities",
+      "Enforces safety checks",
+      "Broadcasts signals"
+    ]
+  },
+  "communication": {
+    "redis_channels": [
+      "trade_signals: Opportunity broadcasts",
+      "execution_results: Outcome feedback",
+      "ml_updates: Model improvements"
+    ],
+    "rpc_providers": [
+      "Primary: Infura (all chains)",
+      "Secondary: Alchemy (failover)",
+      "Tertiary: Public RPCs (emergency)"
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+Component,Category,Enabled,Version,Description
+OmniBrain,Core AI,True,4.2.0,Main AI engine for opportunity detection and analysis
+ProfitEngine,Core AI,True,4.2.0,Advanced profit calculation with real-time simulation
+TitanCommander,Orchestration,True,4.2.0,Command center for system coordination
+MainnetOrchestrator,Orchestration,True,4.2.0,Full system orchestrator for mainnet operations
+Multi-Chain RPC,Blockchain,True,4.2.0,Dual RPC providers (Infura + Alchemy) across 15+ chains
+WebSocket Streaming,Blockchain,True,4.2.0,Real-time mempool monitoring and block updates
+Web3 Middleware,Blockchain,True,4.2.0,"PoA middleware for Polygon, BSC, Fantom, Celo"
+Balancer V3 Flash Loans,Flash Loans,True,4.2.0,Zero-fee flash loans with unlock mechanism
+Aave V3 Flash Loans,Flash Loans,True,4.2.0,Alternative flash loan source (0.05-0.09% fee)
+Uniswap V2 Integration,DEX,True,4.2.0,Uniswap V2 and forks across all chains
+Uniswap V3 Integration,DEX,True,4.2.0,Concentrated liquidity pools with fee tiers
+Curve Integration,DEX,True,4.2.0,Stable swap pools for low-slippage trades
+Balancer Integration,DEX,True,4.2.0,Multi-token pools and stable pools
+DEX Pricer,DEX,True,4.2.0,Multi-protocol price queries with caching
+Li.Fi Bridge Aggregator,Cross-Chain,True,4.2.0,"15+ bridge protocols (Stargate, Across, Hop)"
+BridgeManager,Cross-Chain,True,4.2.0,Optimal bridge selection and routing
+Bridge Oracle,Cross-Chain,True,4.2.0,Real-time bridge fee and time estimation
+MarketForecaster,ML,True,4.2.0,Predicts gas price trends for timing optimization
+QLearningAgent,ML,True,4.2.0,Reinforcement learning for parameter optimization
+FeatureStore,ML,True,4.2.0,Historical data aggregation for pattern recognition
+TitanBot,Execution,True,4.2.0,Node.js execution bot with PAPER/LIVE modes
+GasManager,Execution,True,4.2.0,EIP-1559 dynamic gas fee optimization
+BloxRouteManager,Execution,False,4.2.0,MEV protection via private mempool
+OmniSDKEngine,Execution,True,4.2.0,Multi-protocol execution with simulation
+OmniArbExecutor,Smart Contracts,True,4.2.0,Main arbitrage executor with flash loan support
+Redis Message Queue,Infrastructure,True,4.2.0,High-performance message passing between components
+Simulation Engine,Infrastructure,True,4.2.0,Transaction simulation and TVL checking

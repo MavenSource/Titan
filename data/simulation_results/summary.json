@@ -1,0 +1,35 @@
+{
+  "simulation_period": "90 days",
+  "total_opportunities_found": 672,
+  "total_opportunities_executed": 444,
+  "total_successful_trades": 406,
+  "total_failed_trades": 38,
+  "overall_success_rate": 0.9144144144144144,
+  "total_profit_usd": 111245.86364977353,
+  "total_gas_cost_usd": 205208.64000000007,
+  "net_profit_usd": -93962.77635022654,
+  "average_daily_profit": 1236.0651516641503,
+  "average_profit_per_trade": 274.0045902703782,
+  "features_enabled": {
+    "ml_gas_prediction": true,
+    "ml_profit_optimization": true,
+    "cross_chain_bridges": true,
+    "multi_dex_routing": true,
+    "flash_loans": true,
+    "liquidity_validation": true,
+    "transaction_simulation": true,
+    "mev_protection": false,
+    "adaptive_slippage": true
+  },
+  "config": {
+    "min_profit_threshold_usd": 5.0,
+    "max_gas_price_gwei": 500,
+    "flash_loan_fee_rate": 0.0,
+    "min_success_probability": 0.7,
+    "slippage_tolerance": 0.01,
+    "gas_buffer_multiplier": 1.2,
+    "base_gas_units": 390000,
+    "bridge_fee_avg_usd": 2.5,
+    "execution_mode": "PAPER"
+  }
+}
