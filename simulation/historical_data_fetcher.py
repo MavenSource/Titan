@@ -22,11 +22,13 @@ from typing import Dict, List, Optional, Tuple
 from web3 import Web3
 try:
     from web3.middleware import geth_poa_middleware
+    poa_middleware = geth_poa_middleware
 except ImportError:
     try:
-        from web3.middleware import ExtraDataToPOAMiddleware as geth_poa_middleware
+        from web3.middleware import ExtraDataToPOAMiddleware
+        poa_middleware = ExtraDataToPOAMiddleware
     except ImportError:
-        geth_poa_middleware = None
+        poa_middleware = None
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -82,9 +84,9 @@ class HistoricalDataFetcher:
         self.w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': 60}))
         
         # Inject PoA middleware if needed
-        if chain_id in POA_CHAINS and geth_poa_middleware:
+        if chain_id in POA_CHAINS and poa_middleware:
             try:
-                self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                self.w3.middleware_onion.inject(poa_middleware, layer=0)
             except Exception:
                 pass  # Middleware injection failed, continue without it
         

@@ -564,9 +564,21 @@ class TitanSystemAnalyzer:
             }
         }
         
+        # Custom JSON encoder for numpy types
+        def json_encoder(obj):
+            """Convert non-serializable types to JSON-compatible format"""
+            import numpy as np
+            if isinstance(obj, (np.int64, np.int32, np.int16, np.int8)):
+                return int(obj)
+            elif isinstance(obj, (np.float64, np.float32)):
+                return float(obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return str(obj)
+        
         comparison_file = f"{output_dir}/system_comparison.json"
         with open(comparison_file, 'w') as f:
-            json.dump(comparison, f, indent=2, default=str)  # Use default=str for non-serializable types
+            json.dump(comparison, f, indent=2, default=json_encoder)
         logger.info(f"✅ System comparison")
         logger.info(f"   Saved to: {comparison_file}")
         

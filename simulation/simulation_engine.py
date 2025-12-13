@@ -98,6 +98,14 @@ class TitanSimulationEngine:
             'adaptive_slippage': True
         }
         
+        # Opportunity simulation parameters (configurable)
+        self.opportunity_params = {
+            'base_spread_pct': self.config.get('base_spread_pct', 0.03),  # 3%
+            'spread_random_min': self.config.get('spread_random_min', 0.8),
+            'spread_random_max': self.config.get('spread_random_max', 2.0),
+            'min_spread_pct': self.config.get('min_spread_pct', 0.015)  # 1.5%
+        }
+        
         logger.info("🔧 Simulation Engine Initialized")
         logger.info(f"   Features enabled: {sum(self.features.values())}/{len(self.features)}")
     
@@ -142,11 +150,14 @@ class TitanSimulationEngine:
         
         # Simulate price spread (historical data shows spreads)
         # Use random variation to simulate arbitrage opportunities
-        base_spread = 0.03  # 3% base spread
-        random_factor = np.random.uniform(0.8, 2.0)
+        base_spread = self.opportunity_params['base_spread_pct']
+        random_factor = np.random.uniform(
+            self.opportunity_params['spread_random_min'],
+            self.opportunity_params['spread_random_max']
+        )
         simulated_spread = base_spread * random_factor
         
-        if simulated_spread > 0.015:  # Minimum 1.5% spread
+        if simulated_spread > self.opportunity_params['min_spread_pct']:
             opportunity = {
                 'token_pair': 'USDC/WETH',
                 'price_a': token0_price,
@@ -387,7 +398,9 @@ class TitanSimulationEngine:
         liquidity_value = list(liquidity.values())[0] if liquidity else 1e9
         
         # Simulate multiple scanning intervals per day
-        scans_per_day = 24 * 4  # Every 15 minutes
+        # Default: scan every 15 minutes (96 scans per day)
+        scan_interval_minutes = self.config.get('scan_interval_minutes', 15)
+        scans_per_day = (24 * 60) // scan_interval_minutes
         
         for scan in range(scans_per_day):
             # Detect opportunities

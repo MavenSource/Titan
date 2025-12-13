@@ -176,10 +176,13 @@ def fetch_historical_data(
             output_file=cache_file
         )
         return df
-    except Exception as e:
+    except (ConnectionError, TimeoutError, ValueError) as e:
         logger.error(f"❌ Error fetching data: {e}")
         logger.info("Falling back to example data")
         return setup_example_data(days)
+    except Exception as e:
+        logger.error(f"❌ Unexpected error: {e}")
+        raise
 
 
 def run_simulation(

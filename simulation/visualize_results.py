@@ -41,7 +41,7 @@ def load_simulation_data(results_dir='data/simulation_results'):
     # Optional: Load opportunities if needed
     try:
         opportunities = pd.read_csv(f'{results_dir}/opportunities.csv')
-    except:
+    except (FileNotFoundError, pd.errors.EmptyDataError):
         opportunities = None
     
     return daily_metrics, summary, opportunities
