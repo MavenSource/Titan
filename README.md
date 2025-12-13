@@ -1882,7 +1882,7 @@ Contributions are welcome! Please follow these guidelines:
 
 4. **Regulatory Compliance**: Users are responsible for complying with local laws and regulations regarding cryptocurrency trading.
 
-5. **Smart Contract Risk**: Smart contracts may contain bugs or vulnerabilities. Audit before using with real funds.
+5. **Smart Contract Risk**: Smart contracts may contain bugs or vulnerabilities. **Professional audit recommended before using with real funds. Test thoroughly on testnets before deployment.**
 
 6. **API Dependencies**: This system relies on third-party APIs which may change, fail, or become unavailable.
 
