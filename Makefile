@@ -24,6 +24,9 @@ help:
 	@echo ""
 	@echo "System Operations:"
 	@echo "  make start      - Start all Titan components"
+	@echo "  make start-mainnet        - Start mainnet system (use .env mode)"
+	@echo "  make start-mainnet-paper  - Start mainnet in PAPER mode"
+	@echo "  make start-mainnet-live   - Start mainnet in LIVE mode"
 	@echo "  make stop       - Stop all Titan components"
 	@echo "  make restart    - Restart the system"
 	@echo "  make health     - Check system health"
@@ -86,10 +89,29 @@ start:
 	@chmod +x start.sh
 	@./start.sh
 
+# Start mainnet system in paper mode
+start-mainnet-paper:
+	@echo "Starting Titan mainnet system in PAPER mode..."
+	@chmod +x start_mainnet.sh
+	@./start_mainnet.sh paper
+
+# Start mainnet system in live mode
+start-mainnet-live:
+	@echo "Starting Titan mainnet system in LIVE mode..."
+	@chmod +x start_mainnet.sh
+	@./start_mainnet.sh live
+
+# Start mainnet with mode from .env
+start-mainnet:
+	@echo "Starting Titan mainnet system..."
+	@chmod +x start_mainnet.sh
+	@./start_mainnet.sh
+
 # Stop system
 stop:
 	@echo "Stopping Titan system..."
 	@-pkill -f "python3 ml/brain.py" 2>/dev/null || true
+	@-pkill -f "python3 mainnet_orchestrator.py" 2>/dev/null || true
 	@-pkill -f "node execution/bot.js" 2>/dev/null || true
 	@echo "✅ System stopped"
 

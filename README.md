@@ -67,6 +67,7 @@ This release includes comprehensive automation for installation, deployment, and
 
 - **[QUICKSTART.md](QUICKSTART.md)** - 15-minute setup guide
 - **[INSTALL.md](INSTALL.md)** - Detailed installation for all platforms
+- **[MAINNET_MODES.md](MAINNET_MODES.md)** - Paper trading vs live trading modes
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
 - **[RELEASE_NOTES.md](RELEASE_NOTES.md)** - Current release details
 - **[SECURITY_SUMMARY.md](SECURITY_SUMMARY.md)** - Security features and best practices
@@ -99,6 +100,8 @@ make health     # Check system status
 make compile    # Compile contracts
 make deploy-polygon  # Deploy to Polygon
 make start      # Start all components
+make start-mainnet-paper  # Start mainnet in PAPER mode (simulated)
+make start-mainnet-live   # Start mainnet in LIVE mode (real trading)
 make stop       # Stop system
 make audit      # Run system audit
 ```

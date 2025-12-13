@@ -10,6 +10,7 @@ const { LifiExecutionEngine } = require('./lifi_manager');
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const EXECUTOR_ADDR = process.env.EXECUTOR_ADDRESS;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const EXECUTION_MODE = (process.env.TITAN_EXECUTION_MODE || process.env.EXECUTION_MODE || 'PAPER').toUpperCase();
 
 const RPC_MAP = {
     1: process.env.RPC_ETHEREUM,
@@ -35,6 +36,9 @@ class TitanBot {
         this.bloxRoute = new BloxRouteManager();
         this.activeProviders = {};
         this.crossChainEnabled = this._parseBooleanEnv(process.env.ENABLE_CROSS_CHAIN);
+        this.executionMode = EXECUTION_MODE;
+        this.paperTrades = [];
+        this.paperTradeCount = 0;
     }
     
     /**
@@ -50,18 +54,34 @@ class TitanBot {
 
     async init() {
         console.log("🤖 Titan Bot Starting...");
+        console.log(`📋 Execution Mode: ${this.executionMode}`);
         
-        // Validate configuration
-        if (!PRIVATE_KEY || !/^0x[0-9a-fA-F]{64}$/.test(PRIVATE_KEY)) {
-            console.error('❌ CRITICAL: Invalid private key format in .env');
-            console.error('   Must be 64 hex characters with 0x prefix (e.g., 0x1234...)');
-            process.exit(1);
+        if (this.executionMode === 'PAPER') {
+            console.log("📝 PAPER MODE: Trades will be simulated (no blockchain execution)");
+            console.log("   • Real-time data: ✓");
+            console.log("   • Real calculations: ✓");
+            console.log("   • Execution: SIMULATED");
+        } else {
+            console.log("🔴 LIVE MODE: Real blockchain execution enabled");
+            console.log("   ⚠️  WARNING: Real funds will be used!");
         }
+        console.log("");
         
-        if (!EXECUTOR_ADDR || !/^0x[0-9a-fA-F]{40}$/.test(EXECUTOR_ADDR)) {
-            console.error('❌ CRITICAL: Invalid executor address format in .env');
-            console.error('   Must be 40 hex characters with 0x prefix (e.g., 0xabcd...)');
-            process.exit(1);
+        // Validate configuration (only required for LIVE mode)
+        if (this.executionMode === 'LIVE') {
+            if (!PRIVATE_KEY || !/^0x[0-9a-fA-F]{64}$/.test(PRIVATE_KEY)) {
+                console.error('❌ CRITICAL: Invalid private key format in .env');
+                console.error('   Must be 64 hex characters with 0x prefix (e.g., 0x1234...)');
+                process.exit(1);
+            }
+            
+            if (!EXECUTOR_ADDR || !/^0x[0-9a-fA-F]{40}$/.test(EXECUTOR_ADDR)) {
+                console.error('❌ CRITICAL: Invalid executor address format in .env');
+                console.error('   Must be 40 hex characters with 0x prefix (e.g., 0xabcd...)');
+                process.exit(1);
+            }
+        } else {
+            console.log("ℹ️  Paper mode: Skipping wallet validation");
         }
         
         // Validate gas configuration
@@ -135,7 +155,67 @@ class TitanBot {
         });
     }
 
+    /**
+     * Execute a paper trade (simulation only, no blockchain interaction)
+     */
+    async executePaperTrade(signal) {
+        const startTime = Date.now();
+        
+        try {
+            // Validate signal
+            if (!signal || !signal.chainId || !signal.token || !signal.amount) {
+                console.error('❌ Invalid signal structure:', signal);
+                return;
+            }
+            
+            this.paperTradeCount++;
+            const tradeId = `PAPER-${this.paperTradeCount}-${Date.now()}`;
+            
+            console.log(`\n📝 Paper Trade #${this.paperTradeCount} - ${new Date().toISOString()}`);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log(`   Trade ID: ${tradeId}`);
+            console.log(`   Chain: ${signal.chainId}`);
+            console.log(`   Token: ${signal.token}`);
+            console.log(`   Amount: ${signal.amount}`);
+            console.log(`   Type: ${signal.type || 'INTRA_CHAIN'}`);
+            console.log(`   Expected Profit: $${signal.metrics?.profit_usd?.toFixed(2) || 'N/A'}`);
+            
+            // Simulate execution delay (realistic timing)
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Record paper trade
+            const paperTrade = {
+                id: tradeId,
+                timestamp: new Date().toISOString(),
+                signal: signal,
+                status: 'SIMULATED',
+                duration_ms: Date.now() - startTime,
+                mode: 'PAPER'
+            };
+            
+            this.paperTrades.push(paperTrade);
+            
+            // Keep only last 100 paper trades in memory
+            if (this.paperTrades.length > 100) {
+                this.paperTrades.shift();
+            }
+            
+            console.log(`   Status: ✅ SIMULATED`);
+            console.log(`   Duration: ${paperTrade.duration_ms}ms`);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+            
+        } catch (e) {
+            console.error('❌ Paper trade error:', e.message);
+        }
+    }
+
     async executeTrade(signal) {
+        // Route to paper execution if in PAPER mode
+        if (this.executionMode === 'PAPER') {
+            return await this.executePaperTrade(signal);
+        }
+        
+        // Otherwise, execute real trade (LIVE mode)
         const startTime = Date.now();
         let executionStatus = 'UNKNOWN';
         
