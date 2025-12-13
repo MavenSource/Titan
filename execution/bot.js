@@ -10,6 +10,7 @@ const { LifiExecutionEngine } = require('./lifi_manager');
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const EXECUTOR_ADDR = process.env.EXECUTOR_ADDRESS;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
+// TITAN_EXECUTION_MODE takes precedence (set by orchestrator), fallback to EXECUTION_MODE (.env)
 const EXECUTION_MODE = (process.env.TITAN_EXECUTION_MODE || process.env.EXECUTION_MODE || 'PAPER').toUpperCase();
 
 const RPC_MAP = {

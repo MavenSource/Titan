@@ -62,13 +62,14 @@ class MainnetOrchestrator:
     
     def __init__(self):
         self.mode = os.getenv('EXECUTION_MODE', 'PAPER').upper()
-        self.enable_realtime_training = self._parse_bool(os.getenv('ENABLE_REALTIME_TRAINING', 'true'))
-        self.shutdown_event = Event()
         
-        # Validate mode
+        # Validate mode immediately (fail fast)
         if self.mode not in [ExecutionMode.PAPER, ExecutionMode.LIVE]:
             logger.error(f"Invalid EXECUTION_MODE: {self.mode}. Must be PAPER or LIVE")
             sys.exit(1)
+        
+        self.enable_realtime_training = self._parse_bool(os.getenv('ENABLE_REALTIME_TRAINING', 'true'))
+        self.shutdown_event = Event()
         
         logger.info("=" * 70)
         logger.info("  🚀 APEX-OMEGA TITAN: MAINNET ORCHESTRATOR")

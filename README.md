@@ -66,8 +66,9 @@ This release includes comprehensive automation for installation, deployment, and
 ## 📚 Additional Documentation
 
 - **[QUICKSTART.md](QUICKSTART.md)** - 15-minute setup guide
-- **[INSTALL.md](INSTALL.md)** - Detailed installation for all platforms
+- **[MAINNET_QUICKSTART.md](MAINNET_QUICKSTART.md)** - 5-minute mainnet paper mode setup
 - **[MAINNET_MODES.md](MAINNET_MODES.md)** - Paper trading vs live trading modes
+- **[INSTALL.md](INSTALL.md)** - Detailed installation for all platforms
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
 - **[RELEASE_NOTES.md](RELEASE_NOTES.md)** - Current release details
 - **[SECURITY_SUMMARY.md](SECURITY_SUMMARY.md)** - Security features and best practices

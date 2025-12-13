@@ -71,9 +71,12 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
-# Update EXECUTION_MODE in .env
+# Update EXECUTION_MODE in .env (portable for Linux and macOS)
 if grep -q "^EXECUTION_MODE=" .env; then
-    sed -i "s/^EXECUTION_MODE=.*/EXECUTION_MODE=$MODE/" .env
+    # Use perl for cross-platform compatibility
+    perl -i -pe "s/^EXECUTION_MODE=.*/EXECUTION_MODE=$MODE/" .env 2>/dev/null || \
+    # Fallback to temp file approach if perl not available
+    (grep -v "^EXECUTION_MODE=" .env > .env.tmp && echo "EXECUTION_MODE=$MODE" >> .env.tmp && mv .env.tmp .env)
 else
     echo "EXECUTION_MODE=$MODE" >> .env
 fi
