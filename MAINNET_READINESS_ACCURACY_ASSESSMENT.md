@@ -46,10 +46,11 @@ This document provides a comprehensive assessment of the mainnet readiness claim
 **Assessment**: ❌ **INACCURATE - Balancer V3 IS deployed on Polygon**
 
 **Correction**: 
-- Balancer V3 Vault uses a **deterministic address** across all major EVM-compatible chains: `0xbA1333333333a1BA1108E8412f11850A5C319bA9`
+- Balancer V3 Vault uses a **deterministic address** across many major EVM-compatible chains: `0xbA1333333333a1BA1108E8412f11850A5C319bA9`
 - This includes: Polygon, Ethereum, Arbitrum, Optimism, Base, Avalanche, and other EVM-compatible Layer 1 and Layer 2 networks
 - The current configuration correctly uses this deterministic address
-- Note: Availability should be verified for each specific chain before deployment
+- **Important**: While the address is deterministic, functionality and actual deployment should be verified for each specific chain before production use
+- **Verification Method**: Use a block explorer (e.g., PolygonScan) to verify the contract exists and check Balancer's official documentation for supported chains
 
 **Source**: 
 ```python

@@ -949,10 +949,10 @@ npx hardhat verify --network polygon DEPLOYED_ADDRESS \
 #### Key Features
 
 **1. Flash Loan Orchestration**
-- **Balancer V3 Vault** (Primary): Deployed at deterministic address `0xbA1333333333a1BA1108E8412f11850A5C319bA9` across major EVM chains
+- **Balancer V3 Vault** (Primary): Uses deterministic address `0xbA1333333333a1BA1108E8412f11850A5C319bA9` across major EVM chains
   - **0% fee** - Zero flash loan costs
-  - Verified on: Ethereum, Polygon, Arbitrum, Optimism, Base, Avalanche, and other EVM-compatible networks
-  - Availability should be verified for each target chain before deployment
+  - Configured for: Ethereum, Polygon, Arbitrum, Optimism, Base, Avalanche, and other EVM-compatible networks
+  - **Important**: Verify deployment exists on target chain via block explorer before production use
 - **Aave V3 Pool** (Fallback): 0.05-0.09% fee per flash loan
   - Available on: Ethereum, Polygon, Arbitrum, Optimism, Avalanche
 - Callback-based execution model with atomic safety guarantees

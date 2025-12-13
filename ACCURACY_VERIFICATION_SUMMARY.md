@@ -50,10 +50,12 @@ The claims in the problem statement are **substantially accurate** with one impo
 **Claim**: "Removed Balancer V3 from Polygon (it's not deployed there)"
 
 **CORRECTION**: ❌ **THIS IS WRONG**
-- Balancer V3 Vault **IS deployed on Polygon**
+- Balancer V3 Vault **IS deployed on Polygon** at the deterministic address
 - Uses deterministic address: `0xbA1333333333a1BA1108E8412f11850A5C319bA9`
-- Available on Polygon, Ethereum, Arbitrum, Optimism, Base, Avalanche, etc.
+- This address is used across many major EVM chains (Ethereum, Polygon, Arbitrum, Optimism, Base, Avalanche)
 - Code correctly uses this address across all chains
+- **Note**: While the address is deterministic, users should verify functionality on each target chain before deployment
+- **Verification**: Check Balancer's official documentation or use block explorers to confirm deployment
 
 **Impact**: This error suggests prioritizing Aave V3 on Polygon, when Balancer V3 (0% fee) is available and should be preferred.
 
