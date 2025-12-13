@@ -1,0 +1,61 @@
+======================================================================
+TITAN 90-DAY SIMULATION - DETAILED ANALYSIS REPORT
+======================================================================
+
+OVERALL SUMMARY
+----------------------------------------------------------------------
+Simulation Period: 90 days
+Active Trading Days: 7
+Total Opportunities Found: 672
+Total Opportunities Executed: 444
+Execution Rate: 66.1%
+
+PERFORMANCE METRICS
+----------------------------------------------------------------------
+Successful Trades: 406
+Failed Trades: 38
+Overall Success Rate: 91.4%
+
+FINANCIAL SUMMARY
+----------------------------------------------------------------------
+Total Profit: $111,245.86
+Total Gas Costs: $205,208.64
+Net Profit: $-93,962.78
+Average Daily Profit: $1,236.07
+Average Profit Per Trade: $274.00
+
+BEST & WORST DAYS
+----------------------------------------------------------------------
+Best Day: 2025-12-06
+  Profit: $19,038.09
+  Trades: 68
+  Success Rate: 89.7%
+
+Worst Day: 2025-12-12
+  Profit: $13,351.83
+  Trades: 54
+  Success Rate: 90.7%
+
+STATISTICAL ANALYSIS
+----------------------------------------------------------------------
+Average Opportunities/Day: 96.0
+Average Executions/Day: 63.4
+Average Success Rate: 91.5%
+Average Gas Price: 33.00 Gwei
+Profit Std Dev: $1,958.68
+
+FEATURES ENABLED
+----------------------------------------------------------------------
+✓ Ml Gas Prediction
+✓ Ml Profit Optimization
+✓ Cross Chain Bridges
+✓ Multi Dex Routing
+✓ Flash Loans
+✓ Liquidity Validation
+✓ Transaction Simulation
+✗ Mev Protection
+✓ Adaptive Slippage
+
+======================================================================
+Report Generated: 2025-12-13 21:09:03
+======================================================================
