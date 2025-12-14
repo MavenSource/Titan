@@ -86,11 +86,20 @@ echo ""
 # Step 2: Install Node.js Dependencies
 echo -e "${BLUE}[2/9] Installing Node.js Dependencies...${NC}"
 if [ -f "package.json" ]; then
-    # Note: --legacy-peer-deps is used to resolve ethers.js version conflict
-    # between hardhat-toolbox (requires ^6.14.0) and flashbots-provider (requires 6.7.1)
-    # This is a known compatibility issue and is safe for our use case
-    npm install --legacy-peer-deps
-    print_status "Node.js dependencies installed"
+    # Check if Yarn is available (better dependency resolution)
+    if command_exists yarn; then
+        print_status "Using Yarn for better dependency conflict resolution"
+        yarn install
+        print_status "Node.js dependencies installed via Yarn"
+    else
+        # Note: --legacy-peer-deps is used to resolve ethers.js version conflict
+        # between hardhat-toolbox (requires ^6.14.0) and flashbots-provider (requires 6.7.1)
+        # This is a known compatibility issue and is safe for our use case
+        print_status "Using npm with --legacy-peer-deps flag"
+        npm install --legacy-peer-deps
+        print_status "Node.js dependencies installed via npm"
+        print_info "Tip: Install Yarn for better dependency resolution: npm install -g yarn"
+    fi
 else
     print_error "package.json not found"
     exit 1

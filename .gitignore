@@ -80,3 +80,8 @@ data/history.csv
 
 # Build artifacts
 *.tsbuildinfo
+
+# Process ID files
+*.pid
+.orchestrator.pid
+.executor.pid

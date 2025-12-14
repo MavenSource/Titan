@@ -68,6 +68,7 @@ This release includes comprehensive automation for installation, deployment, and
 
 ## 📚 Additional Documentation
 
+- **[FULL_INSTALLATION_GUIDE.md](FULL_INSTALLATION_GUIDE.md)** - Complete one-command installation guide
 - **[QUICKSTART.md](QUICKSTART.md)** - 15-minute setup guide
 - **[MAINNET_QUICKSTART.md](MAINNET_QUICKSTART.md)** - 5-minute mainnet paper mode setup
 - **[MAINNET_MODES.md](MAINNET_MODES.md)** - Paper trading vs live trading modes
@@ -79,6 +80,32 @@ This release includes comprehensive automation for installation, deployment, and
 ---
 
 ## ⚡ Quick Start
+
+### Option 1: Full-Scale Installation (One Command)
+
+Install everything and launch the complete system with a single command:
+
+```bash
+# Clone repository
+git clone https://github.com/MavenSource/Titan.git && cd Titan
+
+# Run full-scale installation and launch
+./install_and_run_titan.sh \
+  --wallet-key 0xYOUR_PRIVATE_KEY \
+  --mode paper \
+  --network polygon
+```
+
+This single script:
+- ✅ Installs all dependencies (Node.js, Python, Redis)
+- ✅ Builds Rust components (rustworkx)
+- ✅ Compiles and deploys smart contracts
+- ✅ Configures wallet for gas, TX signing, and profits
+- ✅ Launches the complete Titan system
+
+**See [FULL_INSTALLATION_GUIDE.md](FULL_INSTALLATION_GUIDE.md) for complete documentation.**
+
+### Option 2: Step-by-Step Installation
 
 Get Titan running in 3 commands:
 
