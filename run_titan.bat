@@ -20,7 +20,7 @@ echo ================================================================
 echo.
 echo This script will:
 echo   1. Install Node.js dependencies
-echo   2. Install Python dependencies  
+echo   2. Install Python dependencies
 echo   3. Compile smart contracts
 echo   4. Start the Titan system
 echo.

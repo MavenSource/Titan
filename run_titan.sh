@@ -159,7 +159,10 @@ echo ""
 print_info "STEP 4/5: Installing Python dependencies..."
 echo ""
 
-$PIP_CMD install -r requirements.txt
+if ! $PIP_CMD install -r requirements.txt; then
+    print_error "Failed to install Python dependencies"
+    exit 1
+fi
 
 print_status "Python dependencies installed"
 
@@ -171,7 +174,10 @@ echo ""
 print_info "STEP 5/5: Compiling smart contracts..."
 echo ""
 
-npx hardhat compile
+if ! npx hardhat compile; then
+    print_error "Failed to compile smart contracts"
+    exit 1
+fi
 
 print_status "Smart contracts compiled"
 

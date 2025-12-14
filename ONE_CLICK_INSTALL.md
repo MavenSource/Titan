@@ -4,7 +4,7 @@ This guide provides the **simplest possible way** to install and run the Titan a
 
 ## Quick Start Options
 
-### Option 1: Yarn (Recommended for Unix/Linux/macOS)
+### Option 1: Yarn (Cross-Platform)
 
 ```bash
 # Clone repository
@@ -19,7 +19,9 @@ nano .env  # or use your favorite editor
 yarn install-and-run:yarn
 ```
 
-### Option 2: npm (Unix/Linux/macOS)
+**Note:** This command works on Windows, macOS, and Linux. It automatically detects your OS and runs the appropriate installation method.
+
+### Option 2: npm (Cross-Platform)
 
 ```bash
 # Clone repository
@@ -33,6 +35,8 @@ nano .env
 # One command to install and run everything!
 npm run install-and-run
 ```
+
+**Note:** This command works on Windows, macOS, and Linux. It automatically detects your OS and runs the appropriate installation method.
 
 ### Option 3: Shell Script (Unix/Linux/macOS)
 

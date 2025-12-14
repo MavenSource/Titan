@@ -32,19 +32,53 @@ if %errorlevel% neq 0 (
 
 echo [+] Yarn found
 echo.
-echo Using Yarn to install and run Titan...
+echo Installing and running Titan with Yarn...
 echo.
 
-REM Use yarn to run the install-and-run script
-call yarn install-and-run:yarn
+REM Check for .env file
+if not exist .env (
+    echo [!] .env file not found. Creating from template...
+    if exist .env.example (
+        copy .env.example .env >nul
+        echo [+] .env file created
+        echo.
+        echo [!] IMPORTANT: Edit .env file with your configuration!
+        echo.
+        pause
+    )
+)
 
+REM Install dependencies with Yarn
+echo [1/4] Installing Node.js dependencies with Yarn...
+call yarn install
 if %errorlevel% neq 0 (
-    echo.
-    echo [X] Failed to install and run Titan
+    echo [X] Failed to install Node.js dependencies
     pause
     exit /b 1
 )
 
+echo [2/4] Installing Python dependencies...
+pip install -r requirements.txt
+if %errorlevel% neq 0 (
+    echo [X] Failed to install Python dependencies
+    pause
+    exit /b 1
+)
+
+echo [3/4] Compiling smart contracts...
+call npx hardhat compile
+if %errorlevel% neq 0 (
+    echo [X] Failed to compile contracts
+    pause
+    exit /b 1
+)
+
+echo [4/4] Starting Titan system...
 echo.
-echo [+] Titan is running!
+start "Titan [BRAIN]" cmd /k "python ml/brain.py"
+timeout /t 2 /nobreak >nul
+start "Titan [EXECUTOR]" cmd /k "node execution/bot.js"
+
+echo.
+echo [+] Titan is running in separate windows!
 pause
