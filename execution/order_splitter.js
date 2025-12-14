@@ -106,11 +106,11 @@ class OrderSplitter {
             if (!pool.liquidity || pool.liquidity <= 0) return false;
             if (!pool.name || !pool.router) return false;
             
-            // Validate tokens match
-            const hasTokens = pool.tokens && 
-                              (pool.tokens.includes(tokenIn) || pool.tokens.includes(tokenOut));
+            // Validate tokens match (backward compatible: accept if no token data provided)
+            if (!pool.tokens) return true; // Backward compat: accept pools without token data
             
-            return hasTokens || true; // Accept if no token data (backward compat)
+            const hasTokens = pool.tokens.includes(tokenIn) || pool.tokens.includes(tokenOut);
+            return hasTokens;
         }).sort((a, b) => b.liquidity - a.liquidity); // Sort by liquidity desc
     }
 
@@ -200,7 +200,7 @@ class OrderSplitter {
      * @param {object} splitResult - Result from optimizeSplit()
      * @param {string} tokenIn - Input token address
      * @param {string} tokenOut - Output token address
-     * @param {number} totalAmountWei - Total amount in wei
+     * @param {bigint} totalAmountWei - Total amount in wei (as BigInt)
      * @returns {Array} Executable trade objects
      */
     convertToTrades(splitResult, tokenIn, tokenOut, totalAmountWei) {
@@ -215,10 +215,12 @@ class OrderSplitter {
             }];
         }
         
-        // Convert USD amounts to wei proportionally
+        // Convert USD amounts to wei proportionally using BigInt arithmetic
         const trades = splitResult.splits.map(split => {
             const portion = parseFloat(split.percentage) / 100;
-            const amountWei = BigInt(Math.floor(Number(totalAmountWei) * portion));
+            // Use BigInt arithmetic to avoid precision loss
+            const portionScaled = BigInt(Math.floor(portion * 1e18));
+            const amountWei = (totalAmountWei * portionScaled) / BigInt(1e18);
             
             return {
                 router: split.router,

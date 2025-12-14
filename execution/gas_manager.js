@@ -270,6 +270,16 @@ class GasManager {
     }
 
     /**
+     * Helper to apply gas multiplier to base value
+     * @private
+     */
+    _applyGasMultiplier(baseValue, multiplier) {
+        if (!baseValue) return undefined;
+        const multiplierScaled = BigInt(Math.floor(multiplier * 100));
+        return (baseValue * multiplierScaled) / 100n;
+    }
+
+    /**
      * NEW: Calculate optimal gas for MEV strategies
      * Different strategies have different timing requirements and gas needs
      * @param {string} strategy - Strategy type: SANDWICH, BATCH_MERKLE, JIT_LIQUIDITY, STANDARD
@@ -287,9 +297,9 @@ class GasManager {
             case 'SANDWICH':
                 // Front-run needs high priority to guarantee position
                 return {
-                    maxPriorityFeePerGas: (baseGas.maxPriorityFeePerGas || baseGas.gasPrice) * BigInt(Math.floor(this.mevGasMultiplier * 100)) / 100n,
-                    maxFeePerGas: baseGas.maxFeePerGas ? (baseGas.maxFeePerGas * 110n) / 100n : undefined,
-                    gasPrice: baseGas.gasPrice ? (baseGas.gasPrice * 150n) / 100n : undefined,
+                    maxPriorityFeePerGas: this._applyGasMultiplier(baseGas.maxPriorityFeePerGas || baseGas.gasPrice, this.mevGasMultiplier),
+                    maxFeePerGas: this._applyGasMultiplier(baseGas.maxFeePerGas, 1.10),
+                    gasPrice: this._applyGasMultiplier(baseGas.gasPrice, 1.50),
                     gasLimit: null, // Will be estimated separately
                     reason: 'High priority for frontrunning'
                 };
@@ -297,9 +307,9 @@ class GasManager {
             case 'BATCH_MERKLE':
                 // Batches are less time-sensitive and save gas
                 return {
-                    maxPriorityFeePerGas: baseGas.maxPriorityFeePerGas ? (baseGas.maxPriorityFeePerGas * 95n) / 100n : undefined,
+                    maxPriorityFeePerGas: this._applyGasMultiplier(baseGas.maxPriorityFeePerGas, 0.95),
                     maxFeePerGas: baseGas.maxFeePerGas,
-                    gasPrice: baseGas.gasPrice ? (baseGas.gasPrice * 95n) / 100n : undefined,
+                    gasPrice: this._applyGasMultiplier(baseGas.gasPrice, 0.95),
                     gasLimit: null, // Batches use less gas per trade
                     reason: 'Lower priority acceptable for batches'
                 };
@@ -307,9 +317,9 @@ class GasManager {
             case 'JIT_LIQUIDITY':
                 // JIT needs to land before target TX but not extreme priority
                 return {
-                    maxPriorityFeePerGas: baseGas.maxPriorityFeePerGas ? (baseGas.maxPriorityFeePerGas * 120n) / 100n : undefined,
-                    maxFeePerGas: baseGas.maxFeePerGas ? (baseGas.maxFeePerGas * 110n) / 100n : undefined,
-                    gasPrice: baseGas.gasPrice ? (baseGas.gasPrice * 120n) / 100n : undefined,
+                    maxPriorityFeePerGas: this._applyGasMultiplier(baseGas.maxPriorityFeePerGas, 1.20),
+                    maxFeePerGas: this._applyGasMultiplier(baseGas.maxFeePerGas, 1.10),
+                    gasPrice: this._applyGasMultiplier(baseGas.gasPrice, 1.20),
                     gasLimit: null,
                     reason: 'Medium-high priority for JIT timing'
                 };

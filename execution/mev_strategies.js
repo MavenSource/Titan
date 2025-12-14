@@ -38,8 +38,9 @@ class MEVStrategies {
      * @private
      */
     _parseBooleanEnv(value) {
-        if (!value) return false;
-        const normalized = value.toLowerCase().trim();
+        // Handle null/undefined inputs
+        if (value === null || value === undefined || value === '') return false;
+        const normalized = String(value).toLowerCase().trim();
         return normalized === 'true' || normalized === '1' || normalized === 'yes';
     }
 
@@ -211,12 +212,13 @@ class MEVStrategies {
     /**
      * Calculate validator tip for MEV bundle
      * Typically give 90% of profit to validator to ensure inclusion
-     * @param {number} expectedProfitWei - Expected profit in wei
+     * @param {bigint} expectedProfitWei - Expected profit in wei (as BigInt)
      * @returns {bigint} Validator tip amount in wei
      */
     calculateValidatorTip(expectedProfitWei) {
-        const tipPercent = this.validatorTipPercent / 100;
-        const tipWei = BigInt(Math.floor(Number(expectedProfitWei) * tipPercent));
+        // Use BigInt arithmetic to avoid precision loss
+        const tipPercentScaled = BigInt(Math.floor(this.validatorTipPercent * 1e16)); // Scale by 1e16 for percent
+        const tipWei = (expectedProfitWei * tipPercentScaled) / BigInt(1e18);
         
         console.log(`💸 Validator tip: ${ethers.formatEther(tipWei)} ETH (${this.validatorTipPercent}% of profit)`);
         
