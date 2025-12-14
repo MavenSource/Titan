@@ -271,12 +271,14 @@ class GasManager {
 
     /**
      * Helper to apply gas multiplier to base value
+     * Supports multipliers with up to 4 decimal places precision
      * @private
      */
     _applyGasMultiplier(baseValue, multiplier) {
         if (!baseValue) return undefined;
-        const multiplierScaled = BigInt(Math.floor(multiplier * 100));
-        return (baseValue * multiplierScaled) / 100n;
+        // Scale by 10000 to support multipliers like 1.5555 (4 decimal places)
+        const multiplierScaled = BigInt(Math.round(multiplier * 10000));
+        return (baseValue * multiplierScaled) / 10000n;
     }
 
     /**

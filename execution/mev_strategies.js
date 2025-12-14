@@ -217,8 +217,9 @@ class MEVStrategies {
      */
     calculateValidatorTip(expectedProfitWei) {
         // Use BigInt arithmetic to avoid precision loss
-        const tipPercentScaled = BigInt(Math.floor(this.validatorTipPercent * 1e16)); // Scale by 1e16 for percent
-        const tipWei = (expectedProfitWei * tipPercentScaled) / BigInt(1e18);
+        // Convert percentage to basis points (90% = 90) then to scaled integer
+        const tipPercentScaled = BigInt(Math.round(this.validatorTipPercent * 100)); // Scale to basis points (90 -> 9000)
+        const tipWei = (expectedProfitWei * tipPercentScaled) / BigInt(10000); // Divide by 10000 for basis points
         
         console.log(`💸 Validator tip: ${ethers.formatEther(tipWei)} ETH (${this.validatorTipPercent}% of profit)`);
         

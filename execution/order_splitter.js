@@ -204,22 +204,24 @@ class OrderSplitter {
      * @returns {Array} Executable trade objects
      */
     convertToTrades(splitResult, tokenIn, tokenOut, totalAmountWei) {
-        if (!splitResult.shouldSplit || splitResult.splits.length === 0) {
-            // No split needed, return single trade
+        // Check if splits array exists and has elements
+        if (!splitResult.shouldSplit || !splitResult.splits || splitResult.splits.length === 0) {
+            // No split needed, return single trade with safe defaults
+            const firstSplit = splitResult.splits && splitResult.splits.length > 0 ? splitResult.splits[0] : {};
             return [{
-                router: splitResult.splits[0]?.router || null,
+                router: firstSplit.router || null,
                 tokenIn,
                 tokenOut,
                 amountIn: totalAmountWei.toString(),
-                dex: splitResult.splits[0]?.dex || 'default'
+                dex: firstSplit.dex || 'default'
             }];
         }
         
         // Convert USD amounts to wei proportionally using BigInt arithmetic
         const trades = splitResult.splits.map(split => {
             const portion = parseFloat(split.percentage) / 100;
-            // Use BigInt arithmetic to avoid precision loss
-            const portionScaled = BigInt(Math.floor(portion * 1e18));
+            // Use BigInt arithmetic with rounding to minimize precision loss
+            const portionScaled = BigInt(Math.round(portion * 1e18));
             const amountWei = (totalAmountWei * portionScaled) / BigInt(1e18);
             
             return {
