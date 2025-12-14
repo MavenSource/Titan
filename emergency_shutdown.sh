@@ -29,13 +29,15 @@ echo -e "${YELLOW}Time:${NC} $TIMESTAMP"
 echo -e "${YELLOW}Reason:${NC} $REASON"
 echo ""
 
-# Create shutdown log
+# Create shutdown log directory
 mkdir -p logs
 SHUTDOWN_LOG="logs/emergency_shutdown_$(date '+%Y%m%d_%H%M%S').log"
 
 # Log function with current timestamp
 log_action() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$SHUTDOWN_LOG"
+    # Ensure logs directory exists before writing
+    mkdir -p logs 2>/dev/null || true
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$SHUTDOWN_LOG" 2>/dev/null || echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
 log_action "Emergency shutdown initiated: $REASON"

@@ -279,19 +279,19 @@ The system has undergone a comprehensive professional security audit covering al
 ### Graduated Deployment Plan
 
 **Phase 1: Limited Deployment (Weeks 1-2)**
-- Maximum capital: $10,000
+- Maximum capital: $5,000-$10,000
 - Single chain operation (Polygon recommended)
 - Manual monitoring 24/7
 - Daily profit/loss review
 
 **Phase 2: Moderate Deployment (Weeks 3-4)**
-- Maximum capital: $50,000
+- Maximum capital: $20,000-$50,000
 - 3-5 chains active
 - Automated monitoring with alerts
 - Weekly performance review
 
 **Phase 3: Full Deployment (Month 2+)**
-- Scaled capital based on performance
+- Scaled capital based on performance ($50,000+)
 - All supported chains
 - Full automation
 - Continuous monitoring
