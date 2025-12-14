@@ -34,6 +34,11 @@ class GasManager {
             COMPLEXITY_BUFFER: 50000,         // Extra buffer for complex routes (3+ hops)
             MAX_FALLBACK_GAS: 800000          // Maximum conservative estimate
         };
+        
+        // NEW: Strategy-specific gas optimization settings
+        this.gasStrategy = process.env.GAS_STRATEGY || 'ADAPTIVE'; // ADAPTIVE, FAST, SAFE
+        this.mevGasMultiplier = parseFloat(process.env.MEV_GAS_MULTIPLIER) || 1.5;
+        this.batchGasDiscount = 0.95; // 5% discount for batch operations
     }
     
     /**
@@ -262,6 +267,106 @@ class GasManager {
         const currentGwei = Number(ethers.formatUnits(currentGasPrice, "gwei"));
         
         return currentGwei <= maxGweiThreshold;
+    }
+
+    /**
+     * NEW: Calculate optimal gas for MEV strategies
+     * Different strategies have different timing requirements and gas needs
+     * @param {string} strategy - Strategy type: SANDWICH, BATCH_MERKLE, JIT_LIQUIDITY, STANDARD
+     * @param {number} blockNumber - Target block number
+     * @returns {Promise<object>} Strategy-optimized gas parameters
+     */
+    async calculateMEVGas(strategy, blockNumber = null) {
+        console.log(`⛽ Calculating MEV gas for strategy: ${strategy}`);
+        
+        // Get base gas estimation
+        const baseGas = await this.getDynamicGasFees('STANDARD');
+        
+        // Apply strategy-specific adjustments
+        switch(strategy) {
+            case 'SANDWICH':
+                // Front-run needs high priority to guarantee position
+                return {
+                    maxPriorityFeePerGas: (baseGas.maxPriorityFeePerGas || baseGas.gasPrice) * BigInt(Math.floor(this.mevGasMultiplier * 100)) / 100n,
+                    maxFeePerGas: baseGas.maxFeePerGas ? (baseGas.maxFeePerGas * 110n) / 100n : undefined,
+                    gasPrice: baseGas.gasPrice ? (baseGas.gasPrice * 150n) / 100n : undefined,
+                    gasLimit: null, // Will be estimated separately
+                    reason: 'High priority for frontrunning'
+                };
+                
+            case 'BATCH_MERKLE':
+                // Batches are less time-sensitive and save gas
+                return {
+                    maxPriorityFeePerGas: baseGas.maxPriorityFeePerGas ? (baseGas.maxPriorityFeePerGas * 95n) / 100n : undefined,
+                    maxFeePerGas: baseGas.maxFeePerGas,
+                    gasPrice: baseGas.gasPrice ? (baseGas.gasPrice * 95n) / 100n : undefined,
+                    gasLimit: null, // Batches use less gas per trade
+                    reason: 'Lower priority acceptable for batches'
+                };
+                
+            case 'JIT_LIQUIDITY':
+                // JIT needs to land before target TX but not extreme priority
+                return {
+                    maxPriorityFeePerGas: baseGas.maxPriorityFeePerGas ? (baseGas.maxPriorityFeePerGas * 120n) / 100n : undefined,
+                    maxFeePerGas: baseGas.maxFeePerGas ? (baseGas.maxFeePerGas * 110n) / 100n : undefined,
+                    gasPrice: baseGas.gasPrice ? (baseGas.gasPrice * 120n) / 100n : undefined,
+                    gasLimit: null,
+                    reason: 'Medium-high priority for JIT timing'
+                };
+                
+            case 'STANDARD':
+            default:
+                // Standard arbitrage - normal priority
+                return baseGas;
+        }
+    }
+
+    /**
+     * NEW: Get gas strategy based on network conditions
+     * Dynamically adjusts between SAFE, ADAPTIVE, and FAST based on profit margin
+     * @param {number} expectedProfitUSD - Expected profit in USD
+     * @param {number} estimatedGasCostUSD - Estimated gas cost in USD
+     * @returns {string} Recommended strategy: SAFE, ADAPTIVE, or FAST
+     */
+    getRecommendedStrategy(expectedProfitUSD, estimatedGasCostUSD) {
+        const profitMargin = expectedProfitUSD - estimatedGasCostUSD;
+        const marginPercent = (profitMargin / expectedProfitUSD) * 100;
+        
+        if (marginPercent < 10) {
+            // Tight margin - use SAFE to avoid overpaying
+            console.log(`💡 Tight margin (${marginPercent.toFixed(1)}%) - Recommending SAFE strategy`);
+            return 'SAFE';
+        } else if (marginPercent > 50) {
+            // Large margin - can afford FAST for better execution
+            console.log(`💡 Large margin (${marginPercent.toFixed(1)}%) - Recommending FAST strategy`);
+            return 'FAST';
+        } else {
+            // Medium margin - use ADAPTIVE
+            console.log(`💡 Medium margin (${marginPercent.toFixed(1)}%) - Recommending ADAPTIVE strategy`);
+            return 'ADAPTIVE';
+        }
+    }
+
+    /**
+     * NEW: Calculate batch-optimized gas limit
+     * Batches use significantly less gas per trade
+     * @param {number} tradeCount - Number of trades in batch
+     * @returns {bigint} Optimized gas limit for batch
+     */
+    calculateBatchGasLimit(tradeCount) {
+        if (tradeCount <= 0) return BigInt(300000);
+        
+        // Batch: Base overhead + per-trade cost
+        const batchBaseGas = 150000;
+        const perTradeGas = 1500;
+        const estimatedGas = batchBaseGas + (tradeCount * perTradeGas);
+        
+        // Add safety buffer
+        const safeGasLimit = Math.floor(estimatedGas * this.config.gasLimitMultiplier);
+        
+        console.log(`⛽ Batch Gas: ${tradeCount} trades = ${safeGasLimit.toLocaleString()} gas`);
+        
+        return BigInt(safeGasLimit);
     }
 }
 
