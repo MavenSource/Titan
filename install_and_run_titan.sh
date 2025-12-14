@@ -259,12 +259,31 @@ else
     fi
 fi
 
+# Check Yarn (optional but recommended for better dependency resolution)
+if command_exists yarn; then
+    YARN_VERSION=$(yarn --version)
+    print_status "Yarn found: $YARN_VERSION (recommended for dependency management)"
+else
+    print_warning "Yarn not found. Yarn offers better dependency conflict resolution."
+    print_info "Install with: npm install -g yarn"
+    print_info "System will use npm as fallback"
+fi
+
 print_section "STEP 2/10: INSTALLING NODE.JS DEPENDENCIES"
 
 print_progress "Installing Node.js packages..."
 if [ -f "package.json" ]; then
-    npm install --legacy-peer-deps
-    print_status "Node.js dependencies installed"
+    # Check if Yarn is available (better dependency resolution)
+    if command_exists yarn; then
+        print_info "Using Yarn for dependency management (better conflict resolution)"
+        yarn install
+        print_status "Node.js dependencies installed via Yarn"
+    else
+        print_info "Using npm for dependency management"
+        npm install --legacy-peer-deps
+        print_status "Node.js dependencies installed via npm"
+        print_info "Tip: Install Yarn for better dependency resolution: npm install -g yarn"
+    fi
 else
     print_error "package.json not found"
     exit 1

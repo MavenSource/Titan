@@ -49,6 +49,7 @@ The script will attempt to install missing components, but you should have:
 - **Python 3.11+** - Python runtime
 - **pip3** - Python package manager
 - **Git** - Version control (optional)
+- **Yarn** (optional but recommended) - Better dependency conflict resolution than npm
 
 ### Required Information
 
@@ -518,6 +519,29 @@ chmod +x install_and_run_titan.sh
 # Or run with bash
 bash install_and_run_titan.sh
 ```
+
+### Issue: "Dependency conflicts during npm install"
+
+**Solution:**
+Use Yarn for better dependency conflict resolution:
+
+```bash
+# Install Yarn globally
+npm install -g yarn
+
+# Use Yarn for installation
+yarn install
+
+# Or use the yarn setup script
+yarn setup:yarn
+```
+
+**Why Yarn?**
+- Better dependency resolution algorithm
+- `resolutions` field forces specific versions across all dependencies
+- Deterministic installs with yarn.lock
+- Faster installation with better caching
+- Automatic conflict resolution without --legacy-peer-deps flag
 
 ## Advanced Usage
 

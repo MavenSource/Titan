@@ -36,12 +36,36 @@ install_and_run_titan.bat
 ## What Gets Installed
 
 1. ✅ Node.js dependencies (ethers, hardhat, etc.)
+   - Uses Yarn if available (recommended for better dependency resolution)
+   - Falls back to npm with --legacy-peer-deps
 2. ✅ Python dependencies (web3, pandas, etc.)
 3. ✅ Rust components (rustworkx graph library)
 4. ✅ Redis message queue (optional)
 5. ✅ Smart contracts (compiled and deployed)
 6. ✅ Wallet configuration (gas, signing, profits)
 7. ✅ System launch (orchestrator + executor)
+
+## Using Yarn (Recommended)
+
+For better dependency conflict resolution:
+
+```bash
+# Install Yarn globally
+npm install -g yarn
+
+# Script will auto-detect and use Yarn
+./install_and_run_titan.sh --wallet-key 0xYOUR_KEY
+
+# Or use yarn setup directly
+yarn install
+yarn setup:yarn
+```
+
+**Benefits:**
+- Better dependency resolution
+- Faster installation
+- No --legacy-peer-deps needed
+- Deterministic installs
 
 ## After Installation
 
