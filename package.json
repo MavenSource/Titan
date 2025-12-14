@@ -16,7 +16,9 @@
     "health": "redis-cli ping && node -v && python3 --version",
     "clean": "rm -rf artifacts cache typechain typechain-types",
     "setup": "npm ci && pip3 install -r requirements.txt && npx hardhat compile",
-    "setup:yarn": "yarn install && pip3 install -r requirements.txt && npx hardhat compile"
+    "setup:yarn": "yarn install && pip3 install -r requirements.txt && npx hardhat compile",
+    "install-and-run": "npm install --legacy-peer-deps && pip3 install -r requirements.txt && npx hardhat compile && chmod +x start.sh && ./start.sh",
+    "install-and-run:yarn": "yarn install && pip3 install -r requirements.txt && npx hardhat compile && chmod +x start.sh && ./start.sh"
   },
   "keywords": [
     "defi",

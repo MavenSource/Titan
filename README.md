@@ -68,6 +68,7 @@ This release includes comprehensive automation for installation, deployment, and
 
 ## 📚 Additional Documentation
 
+- **[ONE_CLICK_INSTALL.md](ONE_CLICK_INSTALL.md)** - ⚡ **NEW!** One-click installation guide (simplest way!)
 - **[FULL_INSTALLATION_GUIDE.md](FULL_INSTALLATION_GUIDE.md)** - Complete one-command installation guide
 - **[QUICKSTART.md](QUICKSTART.md)** - 15-minute setup guide
 - **[MAINNET_QUICKSTART.md](MAINNET_QUICKSTART.md)** - 5-minute mainnet paper mode setup
@@ -81,9 +82,33 @@ This release includes comprehensive automation for installation, deployment, and
 
 ## ⚡ Quick Start
 
-### Option 1: Full-Scale Installation (One Command)
+### Option 1: One-Click Install and Run ⚡ **NEW!**
 
-Install everything and launch the complete system with a single command:
+The **simplest way** to get started - just one command after configuring .env:
+
+```bash
+# Clone repository
+git clone https://github.com/MavenSource/Titan.git && cd Titan
+
+# Configure .env (copy from template and add your keys)
+cp .env.example .env
+nano .env  # Add your PRIVATE_KEY, RPC endpoints, and LIFI_API_KEY
+
+# ONE-CLICK: Install everything and start!
+yarn install-and-run:yarn
+# or use npm:
+# npm run install-and-run
+```
+
+**For Windows:** Just double-click `run_titan.bat` or `run_titan_yarn.bat`
+
+This installs dependencies, compiles contracts, and starts the system automatically!
+
+**See [ONE_CLICK_INSTALL.md](ONE_CLICK_INSTALL.md) for detailed one-click options.**
+
+### Option 2: Full-Scale Installation (With Arguments)
+
+Install everything and launch the complete system with command-line arguments:
 
 ```bash
 # Clone repository
@@ -105,7 +130,7 @@ This single script:
 
 **See [FULL_INSTALLATION_GUIDE.md](FULL_INSTALLATION_GUIDE.md) for complete documentation.**
 
-### Option 2: Step-by-Step Installation
+### Option 3: Step-by-Step Installation
 
 Get Titan running in 3 commands:
 
