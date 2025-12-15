@@ -829,6 +829,60 @@ For remote Redis:
 REDIS_URL=redis://username:password@hostname:port
 ```
 
+#### 7. AI/ML Model Configuration
+
+The system includes AI/ML capabilities for intelligent decision-making. Models are loaded at startup if `ENABLE_REALTIME_TRAINING=true`.
+
+**Model Path Variables:**
+
+```env
+# Enable AI/ML features
+ENABLE_REALTIME_TRAINING=true
+
+# CatBoost Model Path - Gradient boosting profit predictor
+CATBOOST_MODEL_PATH=models/catboost_profit_predictor.cbm
+
+# HuggingFace Model Path - Transformer-based market analysis
+HF_MODEL_PATH=models/huggingface/market-sentiment
+
+# General ML Model Path - Scikit-learn ensemble model
+ML_MODEL_PATH=models/ml_ensemble_model.pkl
+
+# Self-Learning Data Path - Training data and feedback storage
+SELF_LEARNING_DATA_PATH=data/self_learning
+
+# Model Cache Directory - Optional caching for downloaded models
+MODEL_CACHE_DIR=models/cache
+```
+
+**Default Behavior:**
+- ✅ **If models exist:** System loads them and uses AI predictions
+- ⚠️ **If models are missing:** System logs warnings and continues with built-in Q-learning
+- 🛡️ **No crashes:** Missing models don't break the system
+
+**Getting Started with AI/ML:**
+
+1. **Quick Start (Use Built-in Q-Learning):**
+   - No additional setup needed
+   - Q-learning reinforcement agent works out-of-the-box
+   - Data stored in `data/self_learning/q_table.json`
+
+2. **Advanced (Train Custom Models):**
+   ```bash
+   # Step 1: Collect training data in PAPER mode
+   EXECUTION_MODE=PAPER python mainnet_orchestrator.py
+   
+   # Step 2: Train your models (see models/README.md)
+   python train_models.py
+   
+   # Step 3: Place trained models in models/ directory
+   ```
+
+3. **Documentation:**
+   - 📖 See `models/README.md` for detailed model training guide
+   - 📖 See `ml/model_loader.py` for model loading implementation
+   - 📖 Built-in models: Q-learning (RL), Market Forecaster, Feature Store
+
 ### Verify Configuration
 
 Run the audit script to verify all files and configuration:
