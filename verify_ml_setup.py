@@ -166,6 +166,7 @@ def check_python_modules():
     
     all_imported = True
     critical_failures = []
+    optional_deps = {'numpy', 'pandas'}  # Dependencies that are optional for verification
     
     for module_name, class_name in modules_to_check:
         try:
@@ -173,10 +174,13 @@ def check_python_modules():
             cls = getattr(module, class_name)
             print_success(f"Successfully imported: {module_name}.{class_name}")
         except ImportError as e:
-            # Check if it's a missing dependency (not critical for verification)
-            if 'numpy' in str(e) or 'pandas' in str(e):
+            # Check if it's a missing optional dependency
+            error_msg = str(e).lower()
+            is_optional = any(dep in error_msg for dep in optional_deps)
+            
+            if is_optional:
                 print_warning(f"Import warning for {module_name}.{class_name}: Missing optional dependency")
-                print_info(f"  Install with: pip install -r requirements.txt")
+                print_info(f"  Install runtime dependencies with: pip install -r requirements.txt")
             else:
                 print_error(f"Failed to import {module_name}.{class_name}: {e}")
                 all_imported = False

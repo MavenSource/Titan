@@ -103,9 +103,13 @@ To train custom models with your own data:
    # Example training script (create your own)
    from catboost import CatBoostClassifier
    import pandas as pd
+   import os
+   
+   # Get data path from environment variable
+   data_path = os.getenv('SELF_LEARNING_DATA_PATH', 'data/self_learning')
    
    # Load training data
-   df = pd.read_csv('data/history.csv')
+   df = pd.read_csv(f'{data_path}/history.csv')
    X = df[['gas_price_gwei', 'bridge_fee_usd', 'dex_price', 'volatility_index']]
    y = df['outcome_label']  # 1=profit, 0=loss
    
@@ -122,9 +126,13 @@ To train custom models with your own data:
    from sklearn.ensemble import RandomForestClassifier
    import joblib
    import pandas as pd
+   import os
+   
+   # Get data path from environment variable
+   data_path = os.getenv('SELF_LEARNING_DATA_PATH', 'data/self_learning')
    
    # Load and prepare data
-   df = pd.read_csv('data/history.csv')
+   df = pd.read_csv(f'{data_path}/history.csv')
    # ... feature engineering ...
    
    # Train ensemble

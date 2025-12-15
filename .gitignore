@@ -78,11 +78,13 @@ dump.rdb
 data/q_table.json
 data/history.csv
 
-# AI/ML Models (exclude large trained models, keep stubs)
+# AI/ML Models (exclude large trained models, keep small stub files)
+# Stub files are < 1KB and committed for reference
+# Trained models are excluded by default
 models/*.cbm
-!models/*_stub.cbm
+!models/catboost_profit_predictor.cbm
 models/*.pkl
-!models/*_stub.pkl
+!models/ml_ensemble_model.pkl
 models/*.h5
 models/*.pb
 models/*.pt
