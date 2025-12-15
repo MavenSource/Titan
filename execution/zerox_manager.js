@@ -53,7 +53,7 @@ class ZeroXManager {
                 sellToken: srcToken,
                 sellAmount: amount,
                 takerAddress: userAddress,
-                slippagePercentage: slippageBps / 10000, // Convert bps to decimal (100 bps = 0.01)
+                slippagePercentage: slippageBps / 10000, // Convert bps to decimal (e.g., 100 bps → 0.01 = 1%)
                 skipValidation: false,
                 enableSlippageProtection: true
             };

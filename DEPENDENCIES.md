@@ -60,14 +60,16 @@ This will be resolved when:
 - **@lifi/sdk@3.0.0** - Cross-chain bridge aggregation
 
 #### DEX Aggregators (Multi-Aggregator Strategy)
-- **@0x/protocol-utils@7.0.0** - 0x/Matcha protocol for multi-chain routing
-- **@cowprotocol/cow-sdk@4.0.0** - CoW Protocol for MEV-protected trades
-- **@jup-ag/core@6.0.0** - Jupiter aggregator for Solana
-- **@kyberswap/ks-sdk-core@1.0.0** - KyberSwap for multi-chain routing
-- **@rango-dev/rango-sdk@0.30.0** - Rango for 70+ chain support
-- **@solana/web3.js@1.95.0** - Solana blockchain interaction
-- **openocean-sdk@1.5.0** - OpenOcean for price discovery across 30+ chains
-- **Note:** 1inch integration uses API-only approach (no SDK dependency)
+All aggregators use HTTP REST API integration (no npm packages required):
+- **1inch** - Fast single-chain arbitrage via API (https://api.1inch.dev)
+- **0x/Matcha** - Multi-chain routing via API (https://api.0x.org)
+- **Jupiter** - Solana aggregator via API (https://quote-api.jup.ag)
+- **CoW Protocol** - MEV-protected trades via API (https://api.cow.fi)
+- **KyberSwap** - Multi-chain routing via API (https://aggregator-api.kyberswap.com)
+- **Rango** - 70+ chain support via API (https://api.rango.exchange)
+- **OpenOcean** - Price discovery via API (https://open-api.openocean.finance)
+- **@solana/web3.js@1.95.0** - Solana blockchain interaction (for Jupiter)
+- **Note:** All integrations use axios for HTTP requests, no SDK dependencies needed
 
 #### Utilities
 - **axios@1.6.7** - HTTP client

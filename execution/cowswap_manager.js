@@ -34,6 +34,13 @@ class CoWSwapManager {
     }
     
     /**
+     * Get CoW Protocol app data hash
+     */
+    _getAppData() {
+        return ethers.id(this.appCode).slice(0, 66);
+    }
+    
+    /**
      * Get the best swap quote from CoW Protocol
      * @param {string} srcToken - Source token address
      * @param {string} destToken - Destination token address
@@ -54,7 +61,7 @@ class CoWSwapManager {
                 sellAmountBeforeFee: amount,
                 from: userAddress,
                 receiver: userAddress,
-                appData: ethers.id(this.appCode).slice(0, 66), // App identifier
+                appData: this._getAppData(), // App identifier
                 kind: "sell",
                 partiallyFillable: false,
                 validTo: Math.floor(Date.now() / 1000) + 600 // 10 minutes
@@ -110,7 +117,7 @@ class CoWSwapManager {
                 sellAmountBeforeFee: amount,
                 from: dummyAddress,
                 receiver: dummyAddress,
-                appData: ethers.id(this.appCode).slice(0, 66),
+                appData: this._getAppData(),
                 kind: "sell",
                 partiallyFillable: false,
                 validTo: Math.floor(Date.now() / 1000) + 600

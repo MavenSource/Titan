@@ -50,20 +50,14 @@
     "tmp": "^0.2.5"
   },
   "dependencies": {
-    "@0x/protocol-utils": "^7.0.0",
-    "@cowprotocol/cow-sdk": "^4.0.0",
     "@flashbots/ethers-provider-bundle": "^1.0.0",
-    "@jup-ag/core": "^6.0.0",
-    "@kyberswap/ks-sdk-core": "^1.0.0",
     "@lifi/sdk": "^3.0.0",
     "@openzeppelin/contracts": "^5.4.0",
-    "@rango-dev/rango-sdk": "^0.30.0",
     "@solana/web3.js": "^1.95.0",
     "axios": "^1.6.7",
     "dotenv": "^16.4.1",
     "ethers": "^6.16.0",
     "glob": "^10.4.0",
-    "openocean-sdk": "^1.5.0",
     "redis": "^4.6.12"
   },
   "devDependencies": {

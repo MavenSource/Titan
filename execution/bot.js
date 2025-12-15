@@ -277,6 +277,8 @@ class TitanBot {
             let routeData;
             try {
                 // Use intelligent aggregator selection for DEX aggregation
+                // Note: use_paraswap flag maintained for backward compatibility
+                // Both flags route through the new multi-aggregator system
                 if (signal.use_aggregator || signal.use_paraswap) {
                     const aggregatorSelector = new AggregatorSelector(chainId, provider);
                     
