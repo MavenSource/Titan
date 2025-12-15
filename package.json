@@ -53,10 +53,11 @@
     "@flashbots/ethers-provider-bundle": "^1.0.0",
     "@lifi/sdk": "^3.0.0",
     "@openzeppelin/contracts": "^5.4.0",
-    "@paraswap/sdk": "^7.3.1",
+    "@solana/web3.js": "^1.95.0",
     "axios": "^1.6.7",
     "dotenv": "^16.4.1",
     "ethers": "^6.16.0",
+    "glob": "^10.4.0",
     "redis": "^4.6.12"
   },
   "devDependencies": {

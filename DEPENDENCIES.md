@@ -57,12 +57,25 @@ This will be resolved when:
 
 #### Trading & DeFi
 - **@flashbots/ethers-provider-bundle@1.0.0** - MEV protection
-- **@paraswap/sdk@7.3.1** - DEX aggregation
+- **@lifi/sdk@3.0.0** - Cross-chain bridge aggregation
+
+#### DEX Aggregators (Multi-Aggregator Strategy)
+All aggregators use HTTP REST API integration (no npm packages required):
+- **1inch** - Fast single-chain arbitrage via API (https://api.1inch.dev)
+- **0x/Matcha** - Multi-chain routing via API (https://api.0x.org)
+- **Jupiter** - Solana aggregator via API (https://quote-api.jup.ag)
+- **CoW Protocol** - MEV-protected trades via API (https://api.cow.fi)
+- **KyberSwap** - Multi-chain routing via API (https://aggregator-api.kyberswap.com)
+- **Rango** - 70+ chain support via API (https://api.rango.exchange)
+- **OpenOcean** - Price discovery via API (https://open-api.openocean.finance)
+- **@solana/web3.js@1.95.0** - Solana blockchain interaction (for Jupiter)
+- **Note:** All integrations use axios for HTTP requests, no SDK dependencies needed
 
 #### Utilities
 - **axios@1.6.7** - HTTP client
 - **dotenv@16.4.1** - Environment variable management
 - **redis@4.6.12** - Message queue client
+- **glob@10.4.0** - File pattern matching (updated from 8.1.0 to fix memory leak)
 
 ### Python Dependencies
 
@@ -187,8 +200,94 @@ If you see version conflicts, ensure you're using:
 - Python 3.11+
 - npm 9+
 
+## Multi-Aggregator Architecture
+
+### Overview
+
+Version 4.2.0 replaces the deprecated `@paraswap/sdk` with an intelligent multi-aggregator routing system that leverages the strengths of 7+ DEX aggregators.
+
+### Aggregator Selection Logic
+
+The `AggregatorSelector` class routes trades based on:
+
+1. **Chain Type**: Solana → Jupiter, EVM chains → Others
+2. **Trade Value**: $1000+ → CoW Swap (MEV protection)
+3. **Cross-Chain**: Multi-chain → Rango or LiFi
+4. **Speed**: Fast execution → 1inch
+5. **Price Discovery**: Best price → OpenOcean
+6. **Limit Orders**: Advanced orders → 0x/Matcha
+7. **Rewards**: Farming incentives → KyberSwap
+
+### Why Multiple Aggregators?
+
+**Problem with Single Aggregator:**
+- ParaSwap was deprecated and no longer maintained
+- Single point of failure
+- Limited chain support
+- No specialized features (MEV protection, limit orders, etc.)
+
+**Benefits of Multi-Aggregator:**
+- **Resilience**: Automatic fallback if primary fails
+- **Best Prices**: Parallel quote comparison across aggregators
+- **Specialization**: Each aggregator optimized for specific use cases
+- **Chain Coverage**: Combined support for 70+ chains
+- **Features**: MEV protection, gasless trades, limit orders, rewards
+
+### Aggregator Comparison
+
+| Feature | 1inch | 0x | Jupiter | CoW | Rango | OpenOcean | KyberSwap |
+|---------|-------|----|---------|----|-------|-----------|-----------|
+| EVM Chains | 10+ | 10+ | ❌ | 2 | 70+ | 30+ | 14+ |
+| Solana | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| MEV Protection | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| Speed (API) | <400ms | <500ms | <300ms | 2-5s | 1-2s | <600ms | <500ms |
+| Gas Optimization | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| Limit Orders | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Gasless Trades | ❌ | ⚡ | ❌ | ✅ | ❌ | ❌ | ❌ |
+
+### Installation Notes
+
+All aggregator SDKs are installed automatically with `npm install --legacy-peer-deps`. No additional steps required.
+
+### API Keys Required
+
+Some aggregators require API keys for production use:
+
+- **Required**: None (all have free tiers or work without keys)
+- **Recommended**: 1inch, 0x, Rango, OpenOcean (higher rate limits)
+- **Optional**: LiFi (already configured)
+
+See `.env.example` for configuration details.
+
+### Troubleshooting Aggregators
+
+**Issue: All aggregators failing**
+- Check internet connectivity
+- Verify API keys if configured
+- Check aggregator status pages
+- Try `AGGREGATOR_PREFERENCE=manual` to bypass aggregators
+
+**Issue: Specific aggregator always timing out**
+- Increase `PARALLEL_QUOTE_TIMEOUT` (default: 5000ms)
+- Check that aggregator's status page
+- Remove from preference list if persistently down
+
+**Issue: Solana trades not working**
+- Install `@solana/web3.js` (included in package.json)
+- Set `SOLANA_RPC_URL` in `.env`
+- Configure `SOLANA_WALLET_PRIVATE_KEY` if executing trades
+
+For detailed aggregator documentation, see `docs/AGGREGATOR_STRATEGY.md`.
+
 ## References
 
 - [npm peer dependencies docs](https://docs.npmjs.com/cli/v8/configuring-npm/package-json#peerdependencies)
 - [ethers.js documentation](https://docs.ethers.org/)
 - [Hardhat documentation](https://hardhat.org/docs)
+- [1inch API Documentation](https://docs.1inch.io/)
+- [0x API Documentation](https://0x.org/docs/api)
+- [Jupiter Documentation](https://docs.jup.ag/)
+- [CoW Protocol Documentation](https://docs.cow.fi/)
+- [Rango Documentation](https://docs.rango.exchange/)
+- [OpenOcean Documentation](https://docs.openocean.finance/)
+- [KyberSwap Documentation](https://docs.kyberswap.com/)
