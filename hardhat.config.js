@@ -1,4 +1,4 @@
-// require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
 // Helper function to get accounts array (empty if no valid private key)

@@ -5,18 +5,18 @@
   "main": "execution/bot.js",
   "scripts": {
     "start": "node execution/bot.js",
-    "brain": "python3 ml/brain.py",
+    "brain": "python ml/brain.py",
     "compile": "npx hardhat compile",
     "deploy:polygon": "npx hardhat run scripts/deploy.js --network polygon",
     "deploy:arbitrum": "npx hardhat run scripts/deploy.js --network arbitrum",
     "deploy:optimism": "npx hardhat run scripts/deploy.js --network optimism",
     "deploy:base": "npx hardhat run scripts/deploy.js --network base",
-    "test": "npx hardhat test && python3 test_phase1.py",
-    "audit": "python3 audit_system.py",
-    "health": "redis-cli ping && node -v && python3 --version",
-    "clean": "rm -rf artifacts cache typechain typechain-types",
-    "setup": "npm ci && pip3 install -r requirements.txt && npx hardhat compile",
-    "setup:yarn": "yarn install && pip3 install -r requirements.txt && npx hardhat compile",
+    "test": "npx hardhat test && python test_phase1.py",
+    "audit": "python audit_system.py",
+    "health": "node -v && python --version",
+    "clean": "npx hardhat clean",
+    "setup": "npm install && pip install -r requirements.txt && npx hardhat compile",
+    "setup:yarn": "yarn install && pip install -r requirements.txt && npx hardhat compile",
     "install-and-run": "node install_and_run.js",
     "install-and-run:yarn": "node install_and_run.js"
   },
@@ -43,31 +43,34 @@
     "npm": ">=9.0.0",
     "yarn": ">=1.22.0"
   },
-  "resolutions": {
-    "ethers": "^6.16.0",
-    "valibot": "^1.2.0",
-    "cookie": "^1.1.1",
-    "tmp": "^0.2.5"
-  },
   "dependencies": {
     "@flashbots/ethers-provider-bundle": "^1.0.0",
     "@lifi/sdk": "^3.0.0",
-    "@openzeppelin/contracts": "^5.4.0",
+    "@paraswap/sdk": "^7.3.1",
     "@solana/web3.js": "^1.95.0",
     "axios": "^1.6.7",
     "dotenv": "^16.4.1",
-    "ethers": "^6.16.0",
     "glob": "^10.4.0",
     "redis": "^4.6.12"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "hardhat": "^2.19.5"
-  },
-  "overrides": {
-    "ethers": "^6.16.0",
-    "valibot": "^1.2.0",
-    "cookie": "^1.1.1",
-    "tmp": "^0.2.5"
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@typechain/ethers-v6": "^0.5.0",
+    "@typechain/hardhat": "^9.0.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^20.0.0",
+    "chai": "^4.3.0",
+    "ethers": "^6.7.1",
+    "hardhat": "^2.19.5",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solidity-coverage": "^0.8.5",
+    "typechain": "^8.3.0",
+    "typescript": "^5.3.0"
   }
 }
