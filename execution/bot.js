@@ -3,7 +3,7 @@ const { ethers } = require('ethers');
 const { createClient } = require('redis');
 const { GasManager } = require('./gas_manager');
 const { BloxRouteManager } = require('./bloxroute_manager');
-const { ParaSwapManager } = require('./paraswap_manager');
+const { AggregatorSelector } = require('./aggregator_selector');
 const { OmniSDKEngine } = require('./omniarb_sdk_engine');
 const { LifiExecutionEngine } = require('./lifi_manager');
 
@@ -276,13 +276,29 @@ class TitanBot {
             // 1. Route construction with validation
             let routeData;
             try {
-                if (signal.use_paraswap) {
-                    const pm = new ParaSwapManager(chainId, provider);
-                    const swap = await pm.getBestSwap(signal.token, signal.path[0], signal.amount, wallet.address);
+                // Use intelligent aggregator selection for DEX aggregation
+                if (signal.use_aggregator || signal.use_paraswap) {
+                    const aggregatorSelector = new AggregatorSelector(chainId, provider);
+                    
+                    // Prepare trade object for aggregator
+                    const trade = {
+                        chainId: chainId,
+                        token: signal.token,
+                        destToken: signal.path[0],
+                        amount: signal.amount,
+                        userAddress: wallet.address,
+                        valueUSD: signal.metrics?.profit_usd || 0,
+                        priority: signal.ai_params?.priority > 50 ? 'SPEED' : 'STANDARD',
+                        slippageBps: signal.slippageBps || 100
+                    };
+                    
+                    // Try to get best route from aggregators
+                    const swap = await aggregatorSelector.executeTrade(trade);
                     if (!swap) {
-                        console.log('🛑 ParaSwap route not available');
+                        console.log('🛑 No aggregator route available');
                         return;
                     }
+                    
                     routeData = ethers.AbiCoder.defaultAbiCoder().encode(
                         ["uint8[]", "address[]", "address[]", "bytes[]"],
                         [[4], [swap.to], [signal.path[0]], [swap.data]]
@@ -332,7 +348,7 @@ class TitanBot {
                 const routeInfo = {
                     protocols: signal.protocols || [],
                     routerCount: (signal.routers || []).length,
-                    hasParaSwap: signal.use_paraswap || false
+                    hasAggregator: signal.use_aggregator || signal.use_paraswap || false
                 };
                 
                 // Get gas limit with route-aware fallback
