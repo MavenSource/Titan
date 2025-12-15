@@ -39,6 +39,7 @@ logger = logging.getLogger("MainnetOrchestrator")
 from ml.brain import OmniBrain
 from ml.cortex.forecaster import MarketForecaster
 from ml.cortex.rl_optimizer import QLearningAgent
+from ml.model_loader import ModelLoader
 
 class ExecutionMode:
     """Execution mode constants"""
@@ -84,6 +85,7 @@ class MainnetOrchestrator:
         self.brain = None
         self.forecaster = None
         self.optimizer = None
+        self.model_loader = None
         
         # Training thread
         self.training_thread = None
@@ -110,25 +112,40 @@ class MainnetOrchestrator:
         logger.info("🔧 Initializing system components...")
         
         try:
+            # 0. Load and validate AI/ML models (before other components)
+            logger.info("   [0/4] Loading AI/ML models...")
+            self.model_loader = ModelLoader()
+            self.model_loader.load_models()
+            logger.info("   ✅ Model validation complete")
+            
             # 1. Initialize Brain (handles data ingestion + arbitrage calculations)
-            logger.info("   [1/3] Initializing OmniBrain (data + calculations)...")
+            logger.info("   [1/4] Initializing OmniBrain (data + calculations)...")
             self.brain = OmniBrain()
             self.brain.initialize()
             logger.info("   ✅ OmniBrain online")
             
             # 2. Initialize AI components for real-time training
             if self.enable_realtime_training:
-                logger.info("   [2/3] Initializing ML training pipeline...")
+                logger.info("   [2/4] Initializing ML training pipeline...")
                 self.forecaster = MarketForecaster()
                 self.optimizer = QLearningAgent()
                 logger.info("   ✅ ML pipeline ready")
             else:
-                logger.info("   [2/3] ML training disabled (skipped)")
+                logger.info("   [2/4] ML training disabled (skipped)")
             
             # 3. Set execution mode in Brain
-            logger.info(f"   [3/3] Configuring execution mode: {self.mode}...")
+            logger.info(f"   [3/4] Configuring execution mode: {self.mode}...")
             self._configure_execution_mode()
             logger.info(f"   ✅ Execution mode: {self.mode}")
+            
+            # 4. Display model loading warnings if any
+            if self.model_loader and self.model_loader.get_warnings():
+                logger.info("")
+                logger.info("   📋 Model Loading Notes:")
+                for warning in self.model_loader.get_warnings():
+                    logger.info(f"      • {warning}")
+                logger.info("   💡 See models/README.md for setup instructions")
+                logger.info("")
             
             logger.info("✅ All components initialized successfully")
             self.metrics['start_time'] = datetime.now()

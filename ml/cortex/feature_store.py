@@ -1,27 +1,36 @@
 import pandas as pd
 import time
 import os
+import logging
 from datetime import datetime
+
+logger = logging.getLogger("FeatureStore")
 
 class FeatureStore:
     """
     The Memory of the Titan.
     Logs market states, bridge fees, and trade outcomes for training.
     """
-    DATA_PATH = "data/history.csv"
 
     def __init__(self):
-        if not os.path.exists("data"):
-            os.makedirs("data")
+        # Use environment variable for data path, with fallback
+        self_learning_dir = os.getenv('SELF_LEARNING_DATA_PATH', 'data/self_learning')
+        self.DATA_PATH = os.path.join(self_learning_dir, 'history.csv')
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(self.DATA_PATH), exist_ok=True)
         
         # Initialize file if missing
         if not os.path.exists(self.DATA_PATH):
-            df = pd.DataFrame(columns=[
-                "timestamp", "chain_id", "token_symbol", 
-                "dex_price", "bridge_fee_usd", "gas_price_gwei",
-                "volatility_index", "outcome_label" # 1=Profit, 0=Loss
-            ])
-            df.to_csv(self.DATA_PATH, index=False)
+            try:
+                df = pd.DataFrame(columns=[
+                    "timestamp", "chain_id", "token_symbol", 
+                    "dex_price", "bridge_fee_usd", "gas_price_gwei",
+                    "volatility_index", "outcome_label" # 1=Profit, 0=Loss
+                ])
+                df.to_csv(self.DATA_PATH, index=False)
+            except Exception as e:
+                logger.warning(f"Failed to initialize history CSV at {self.DATA_PATH}: {e}")
 
     def log_observation(self, chain_id, token, price, fee, gas, vol):
         """
@@ -39,8 +48,11 @@ class FeatureStore:
         }
         
         # Append efficiently
-        df = pd.DataFrame([new_row])
-        df.to_csv(self.DATA_PATH, mode='a', header=False, index=False)
+        try:
+            df = pd.DataFrame([new_row])
+            df.to_csv(self.DATA_PATH, mode='a', header=False, index=False)
+        except Exception as e:
+            logger.error(f"Failed to append observation to {self.DATA_PATH}: {e}")
 
     def update_outcome(self, timestamp, profit_realized):
         """

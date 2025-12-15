@@ -78,6 +78,23 @@ dump.rdb
 data/q_table.json
 data/history.csv
 
+# AI/ML Models (exclude large trained models, keep stubs)
+models/*.cbm
+!models/*_stub.cbm
+models/*.pkl
+!models/*_stub.pkl
+models/*.h5
+models/*.pb
+models/*.pt
+models/*.pth
+models/*.onnx
+models/huggingface/*/pytorch_model.bin
+models/huggingface/*/model.safetensors
+models/cache/*
+!models/cache/.gitkeep
+data/self_learning/*
+!data/self_learning/.gitkeep
+
 # Build artifacts
 *.tsbuildinfo
 

@@ -1,6 +1,9 @@
 import random
 import json
 import os
+import logging
+
+logger = logging.getLogger("QLearningAgent")
 
 class QLearningAgent:
     """
@@ -10,9 +13,14 @@ class QLearningAgent:
     Reward: Profit - GasCost (or -penalty if reverted)
     """
     
-    Q_TABLE_PATH = "data/q_table.json"
-
     def __init__(self):
+        # Use environment variable for Q-table path, with fallback
+        self_learning_dir = os.getenv('SELF_LEARNING_DATA_PATH', 'data/self_learning')
+        self.Q_TABLE_PATH = os.path.join(self_learning_dir, 'q_table.json')
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(self.Q_TABLE_PATH), exist_ok=True)
+        
         self.q_table = self.load_q_table()
         self.learning_rate = 0.1
         self.discount_factor = 0.95
@@ -20,8 +28,12 @@ class QLearningAgent:
 
     def load_q_table(self):
         if os.path.exists(self.Q_TABLE_PATH):
-            with open(self.Q_TABLE_PATH, 'r') as f:
-                return json.load(f)
+            try:
+                with open(self.Q_TABLE_PATH, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.warning(f"Failed to load Q-table from {self.Q_TABLE_PATH}: {e}")
+                return {}
         return {}
 
     def get_state_key(self, chain_id, volatility_level):
@@ -68,5 +80,8 @@ class QLearningAgent:
         self.q_table[state][action_key] = new_value
         
         # Save
-        with open(self.Q_TABLE_PATH, 'w') as f:
-            json.dump(self.q_table, f)
+        try:
+            with open(self.Q_TABLE_PATH, 'w') as f:
+                json.dump(self.q_table, f)
+        except Exception as e:
+            logger.error(f"Failed to save Q-table to {self.Q_TABLE_PATH}: {e}")
