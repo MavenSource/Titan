@@ -87,7 +87,6 @@ npx hardhat compile
 1. Create an alias (PowerShell):
    ```powershell
    New-Alias python3 python
-   ```
 
 2. Or use the full path:
    ```bash
