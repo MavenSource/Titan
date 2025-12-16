@@ -1,6 +1,15 @@
 const hre = require("hardhat");
 
 async function main() {
+  // Verify ethers is available
+  if (!hre.ethers) {
+    throw new Error(
+      "Hardhat ethers plugin not loaded. " +
+      "Make sure @nomicfoundation/hardhat-toolbox is uncommented in hardhat.config.js " +
+      "and @nomicfoundation/hardhat-ethers is installed."
+    );
+  }
+
   // Balancer V3 Vault (Universal Address)
   const BALANCER_V3 = "0xbA1333333333a1BA1108E8412f11850A5C319bA9";
   
@@ -9,15 +18,34 @@ async function main() {
 
   console.log("🚀 Deploying OmniArbExecutor...");
   
+  // Get deployer info
+  const [deployer] = await hre.ethers.getSigners();
+  console.log("Deploying with account:", deployer.address);
+  
+  const balance = await hre.ethers.provider.getBalance(deployer.address);
+  console.log("Account balance:", hre.ethers.formatEther(balance));
+  
+  if (balance === 0n) {
+    throw new Error("Deployer account has no balance for gas fees");
+  }
+  
   const Factory = await hre.ethers.getContractFactory("OmniArbExecutor");
+  console.log("Deploying contract...");
+  
   const contract = await Factory.deploy(BALANCER_V3, AAVE_POLYGON);
+  console.log("Waiting for deployment confirmation...");
   
   await contract.waitForDeployment();
   
-  console.log("✅ Deployed to:", await contract.getAddress());
+  const address = await contract.getAddress();
+  console.log("\n✅ Deployed successfully!");
+  console.log("Contract address:", address);
+  console.log("\nAdd this to your .env file:");
+  console.log(`EXECUTOR_ADDRESS=${address}`);
 }
 
 main().catch((error) => {
-  console.error(error);
+  console.error("\n❌ Deployment failed:");
+  console.error(error.message);
   process.exitCode = 1;
 });
