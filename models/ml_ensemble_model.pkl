@@ -1,0 +1,4 @@
+# Scikit-learn Model Stub
+# This is a placeholder file. Replace with a trained scikit-learn model.
+# Format: Pickle or Joblib serialized model
+# Train your model and save with: joblib.dump(model, 'ml_ensemble_model.pkl')

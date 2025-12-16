@@ -78,6 +78,25 @@ dump.rdb
 data/q_table.json
 data/history.csv
 
+# AI/ML Models (exclude large trained models, keep small stub files)
+# Stub files are < 1KB and committed for reference
+# Trained models are excluded by default
+models/*.cbm
+!models/catboost_profit_predictor.cbm
+models/*.pkl
+!models/ml_ensemble_model.pkl
+models/*.h5
+models/*.pb
+models/*.pt
+models/*.pth
+models/*.onnx
+models/huggingface/*/pytorch_model.bin
+models/huggingface/*/model.safetensors
+models/cache/*
+!models/cache/.gitkeep
+data/self_learning/*
+!data/self_learning/.gitkeep
+
 # Build artifacts
 *.tsbuildinfo
 

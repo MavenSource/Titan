@@ -1,0 +1,4 @@
+# CatBoost Model Stub
+# This is a placeholder file. Replace with a trained CatBoost model.
+# Format: CatBoost binary model (.cbm)
+# Train your model and save with: model.save_model('catboost_profit_predictor.cbm')
