@@ -1,10 +1,13 @@
 import json
 import os
+import logging
 from web3 import Web3
 from dotenv import load_dotenv
 from core.config import CHAINS, BALANCER_V3_VAULT
+from core.chain_registry import get_chain_registry
 
 load_dotenv()
+logger = logging.getLogger("SimulationEngine")
 
 # Minimum ABI for ERC20 Balance checking
 ERC20_ABI = [{"constant":True,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"}]
@@ -16,40 +19,78 @@ class TitanSimulationEngine:
     def __init__(self, chain_id):
         self.chain_id = chain_id
         self.chain_config = CHAINS.get(chain_id)
+        self.chain_registry = get_chain_registry()
         
         if not self.chain_config:
             raise ValueError(f"Chain {chain_id} not configured")
-            
+        
+        # Get RPC URL from chain registry (with validation)
+        rpc_url = self.chain_registry.get_rpc_url(chain_id)
+        
+        if not rpc_url:
+            logger.error(
+                f"[{self.chain_registry.get_chain_name(chain_id)}] "
+                f"No RPC URL configured - check .env file"
+            )
+            raise ValueError(f"No RPC configured for chain {chain_id}")
+        
         # Initialize Web3 Connection
-        self.w3 = Web3(Web3.HTTPProvider(os.getenv(self.chain_config['rpc'])))
-        if not self.w3.is_connected():
-             print(f"⚠️ Warning: Could not connect to {self.chain_config['name']} RPC")
+        try:
+            self.w3 = Web3(Web3.HTTPProvider(rpc_url))
+            
+            if not self.w3.is_connected():
+                logger.error(
+                    f"[{self.chain_registry.get_chain_name(chain_id)}] "
+                    f"Could not connect to RPC: {rpc_url}"
+                )
+                raise ConnectionError(f"RPC connection failed for chain {chain_id}")
+            
+            # Log successful connection
+            block_number = self.w3.eth.block_number
+            logger.info(
+                f"[{self.chain_registry.get_chain_name(chain_id)}] "
+                f"RPC connected - block #{block_number}"
+            )
+            
+        except Exception as e:
+            logger.error(
+                f"[{self.chain_registry.get_chain_name(chain_id)}] "
+                f"RPC initialization failed: {e}"
+            )
+            raise
 
     def get_lender_tvl(self, token_address, protocol="BALANCER"):
         """
         Checks how deep the lender's pockets are.
         Returns: Total Available Liquidity (int, raw units)
         """
+        chain_name = self.chain_registry.get_chain_name(self.chain_id)
+        
         # Determine Lender Address
         lender_address = None
         if protocol == "BALANCER":
             lender_address = BALANCER_V3_VAULT
         elif protocol == "AAVE":
-            lender_address = self.chain_config['aave_pool'] # Pool address holds funds (or aTokens)
-            # Note: For Aave V3, the 'Pool' contract doesn't hold funds directly, 
-            # the aToken does. But checking the aToken supply is a safe proxy for this V4 implementation.
-            # For exact Aave liquidity, we'd query getReserveData, but let's stick to checking the Vault balance for now.
+            lender_address = self.chain_config['aave_pool']
 
         if not lender_address:
+            logger.warning(f"[{chain_name}] No lender address for protocol {protocol}")
             return 0
 
         # Query Balance
         try:
             token_contract = self.w3.eth.contract(address=token_address, abi=ERC20_ABI)
             balance = token_contract.functions.balanceOf(lender_address).call()
+            
+            logger.debug(
+                f"[{chain_name}] TVL check: {protocol} has {balance} units of {token_address}"
+            )
+            
             return balance
         except Exception as e:
-            print(f"❌ TVL Check Failed: {e}")
+            logger.error(
+                f"[{chain_name}] TVL check failed for {token_address} on {protocol}: {e}"
+            )
             return 0
 
     def get_price_impact(self, token_in, token_out, amount, fee=500):
@@ -91,5 +132,9 @@ def get_provider_tvl(token_address, lender_address=None, chain_id=137):
     Returns:
         int: Available liquidity in raw token units (smallest token unit)
     """
-    engine = TitanSimulationEngine(chain_id)
-    return engine.get_lender_tvl(token_address, protocol="BALANCER")
+    try:
+        engine = TitanSimulationEngine(chain_id)
+        return engine.get_lender_tvl(token_address, protocol="BALANCER")
+    except Exception as e:
+        logger.error(f"get_provider_tvl failed for chain {chain_id}: {e}")
+        return 0

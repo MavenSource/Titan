@@ -40,6 +40,8 @@ from ml.brain import OmniBrain
 from ml.cortex.forecaster import MarketForecaster
 from ml.cortex.rl_optimizer import QLearningAgent
 from ml.model_loader import ModelLoader
+from core.system_readiness import run_system_readiness_check
+from core.chain_registry import get_chain_registry
 
 class ExecutionMode:
     """Execution mode constants"""
@@ -63,6 +65,7 @@ class MainnetOrchestrator:
     
     def __init__(self):
         self.mode = os.getenv('EXECUTION_MODE', 'PAPER').upper()
+        self.chain_registry = get_chain_registry()
         
         # Validate mode immediately (fail fast)
         if self.mode not in [ExecutionMode.PAPER, ExecutionMode.LIVE]:
@@ -112,33 +115,41 @@ class MainnetOrchestrator:
         logger.info("🔧 Initializing system components...")
         
         try:
-            # 0. Load and validate AI/ML models (before other components)
-            logger.info("   [0/4] Loading AI/ML models...")
+            # 0. Run system readiness check
+            logger.info("   [0/5] Running system readiness validation...")
+            if not run_system_readiness_check():
+                logger.error("❌ System readiness check failed")
+                logger.error("   Please fix the issues above before proceeding")
+                sys.exit(1)
+            logger.info("   ✅ System readiness validated")
+            
+            # 1. Load and validate AI/ML models (before other components)
+            logger.info("   [1/5] Loading AI/ML models...")
             self.model_loader = ModelLoader()
             self.model_loader.load_models()
             logger.info("   ✅ Model validation complete")
             
-            # 1. Initialize Brain (handles data ingestion + arbitrage calculations)
-            logger.info("   [1/4] Initializing OmniBrain (data + calculations)...")
+            # 2. Initialize Brain (handles data ingestion + arbitrage calculations)
+            logger.info("   [2/5] Initializing OmniBrain (data + calculations)...")
             self.brain = OmniBrain()
             self.brain.initialize()
             logger.info("   ✅ OmniBrain online")
             
-            # 2. Initialize AI components for real-time training
+            # 3. Initialize AI components for real-time training
             if self.enable_realtime_training:
-                logger.info("   [2/4] Initializing ML training pipeline...")
+                logger.info("   [3/5] Initializing ML training pipeline...")
                 self.forecaster = MarketForecaster()
                 self.optimizer = QLearningAgent()
                 logger.info("   ✅ ML pipeline ready")
             else:
-                logger.info("   [2/4] ML training disabled (skipped)")
+                logger.info("   [3/5] ML training disabled (skipped)")
             
-            # 3. Set execution mode in Brain
-            logger.info(f"   [3/4] Configuring execution mode: {self.mode}...")
+            # 4. Set execution mode in Brain
+            logger.info(f"   [4/5] Configuring execution mode: {self.mode}...")
             self._configure_execution_mode()
             logger.info(f"   ✅ Execution mode: {self.mode}")
             
-            # 4. Display model loading warnings if any
+            # 5. Display model loading warnings if any
             if self.model_loader and self.model_loader.get_warnings():
                 logger.info("")
                 logger.info("   📋 Model Loading Notes:")
