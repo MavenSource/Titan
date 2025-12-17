@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
+          cache: 'yarn'
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -30,7 +30,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install Node.js dependencies
-        run: npm ci
+        run: yarn install --frozen-lockfile
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
