@@ -166,6 +166,32 @@ class ChainRegistry:
             if state in [ChainExecutionState.ENABLED, ChainExecutionState.CONFIGURED]
         ]
     
+    @classmethod
+    def get_executor_address(cls, chain_id: int) -> Optional[str]:
+        """
+        Get executor contract address for a chain.
+        
+        Args:
+            chain_id: Chain ID
+            
+        Returns:
+            str: Executor address or None
+        """
+        import os
+        
+        # Map chain IDs to environment variables
+        executor_env_map = {
+            1: 'EXECUTOR_ADDRESS_ETHEREUM',
+            137: 'EXECUTOR_ADDRESS_POLYGON',
+            42161: 'EXECUTOR_ADDRESS_ARBITRUM',
+        }
+        
+        env_var = executor_env_map.get(chain_id)
+        if not env_var:
+            return None
+        
+        return os.getenv(env_var)
+    
     def validate_rpc_health(self, chain_id: int) -> bool:
         """
         Validate RPC connectivity for a chain.

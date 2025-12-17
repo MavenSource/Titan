@@ -58,6 +58,23 @@ class TitanBot {
         const normalized = value.toLowerCase().trim();
         return normalized === 'true' || normalized === '1' || normalized === 'yes';
     }
+    
+    /**
+     * Get executor address for a chain.
+     * @param {number} chainId - Chain ID
+     * @returns {string|null} - Executor address or null
+     */
+    _getExecutorAddress(chainId) {
+        // Chain-specific executor addresses
+        const executorMap = {
+            137: EXECUTOR_ADDR_POLYGON,
+            // Future: Add other chains when execution is enabled
+            // 1: process.env.EXECUTOR_ADDRESS_ETHEREUM,
+            // 42161: process.env.EXECUTOR_ADDRESS_ARBITRUM,
+        };
+        
+        return executorMap[chainId] || null;
+    }
 
     async init() {
         console.log("🤖 Titan Bot Starting...");
@@ -265,7 +282,7 @@ class TitanBot {
             }
             
             // Get chain-specific executor address
-            const EXECUTOR_ADDR = chainId === 137 ? EXECUTOR_ADDR_POLYGON : null;
+            const EXECUTOR_ADDR = this._getExecutorAddress(chainId);
             if (!EXECUTOR_ADDR || EXECUTOR_ADDR === '0xYOUR_DEPLOYED_CONTRACT_ADDRESS_HERE') {
                 console.error(`❌ Executor address not configured for chain ${chainId}`);
                 return;

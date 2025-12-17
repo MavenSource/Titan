@@ -78,7 +78,7 @@ class MerkleBlockBuilder {
      * 
      * @param {number} txIndex - Index of transaction in bundle
      * @param {Array<string>} rawTransactions - All raw transactions in bundle
-     * @returns {Array<string>} Merkle proof path
+     * @returns {Array<Object>} Merkle proof path with position indicators
      */
     generateProof(txIndex, rawTransactions) {
         if (txIndex < 0 || txIndex >= rawTransactions.length) {
@@ -90,13 +90,24 @@ class MerkleBlockBuilder {
         let index = txIndex;
         
         while (level.length > 1) {
-            const siblingIndex = index % 2 === 0 ? index + 1 : index - 1;
+            const isRightNode = index % 2 === 1;
+            const siblingIndex = isRightNode ? index - 1 : index + 1;
             
             if (siblingIndex < level.length) {
-                proof.push(level[siblingIndex]);
+                // Normal case: sibling exists
+                proof.push({
+                    hash: level[siblingIndex],
+                    position: isRightNode ? 'left' : 'right'
+                });
+            } else {
+                // Odd case: no sibling, node is duplicated
+                proof.push({
+                    hash: level[index],
+                    position: 'right'  // Duplicate goes on right
+                });
             }
             
-            // Move to parent level
+            // Build next level
             const nextLevel = [];
             for (let i = 0; i < level.length; i += 2) {
                 const left = level[i];
@@ -118,14 +129,18 @@ class MerkleBlockBuilder {
      * 
      * @param {string} root - Merkle root
      * @param {string} leaf - Transaction hash (leaf)
-     * @param {Array<string>} proof - Merkle proof path
+     * @param {Array<Object>} proof - Merkle proof path with positions
      * @returns {boolean} True if proof is valid
      */
     verifyProof(root, leaf, proof) {
         let computedHash = leaf;
         
         for (const proofElement of proof) {
-            const combined = ethers.concat([computedHash, proofElement].sort());
+            // Combine hashes based on position
+            const combined = proofElement.position === 'left'
+                ? ethers.concat([proofElement.hash, computedHash])
+                : ethers.concat([computedHash, proofElement.hash]);
+            
             computedHash = ethers.keccak256(combined);
         }
         

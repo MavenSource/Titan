@@ -112,7 +112,11 @@ class TransactionBuilder {
     static async estimateGasWithBuffer(provider, tx, bufferMultiplier = GAS_BUFFER_MULTIPLIER) {
         try {
             const estimatedGas = await provider.estimateGas(tx);
-            const bufferedGas = (estimatedGas * BigInt(Math.floor(bufferMultiplier * 100))) / 100n;
+            
+            // Apply buffer: estimatedGas * bufferMultiplier
+            // Convert multiplier to basis points for precision (1.15 = 115%)
+            const bufferPercent = BigInt(Math.floor(bufferMultiplier * 100));
+            const bufferedGas = (estimatedGas * bufferPercent) / 100n;
             
             return bufferedGas;
         } catch (error) {
