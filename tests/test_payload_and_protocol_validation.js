@@ -17,10 +17,28 @@
  * - bloXroute compatibility checks
  */
 
-const { ethers } = require('ethers');
-const { TransactionBuilder } = require('../execution/tx_builder');
+// Import dependencies with error handling
+let ethers, TransactionBuilder;
 const fs = require('fs');
 const path = require('path');
+
+try {
+    ethers = require('ethers').ethers;
+    const txBuilderModule = require('../execution/tx_builder');
+    TransactionBuilder = txBuilderModule.TransactionBuilder;
+    
+    // Validate required dependencies are available
+    if (!ethers || !TransactionBuilder) {
+        throw new Error('Required dependencies not properly loaded');
+    }
+} catch (error) {
+    console.error('❌ FATAL ERROR: Failed to load required dependencies');
+    console.error(`   Error: ${error.message}`);
+    console.error('\nEnsure the following dependencies are available:');
+    console.error('   - ethers package (npm install ethers)');
+    console.error('   - execution/tx_builder.js module');
+    process.exit(1);
+}
 
 // Test configuration
 const POLYGON_CHAIN_ID = 137;
@@ -242,7 +260,17 @@ function testSwapProtocolImplementation() {
     try {
         // Test 2.1: Validate contract source code for swap implementation
         const contractPath = path.join(__dirname, '../contracts/OmniArbExecutor.sol');
+        
+        // Verify contract file exists
+        if (!fs.existsSync(contractPath)) {
+            throw new Error(`Contract file not found: ${contractPath}`);
+        }
+        
         const contractSource = fs.readFileSync(contractPath, 'utf8');
+        
+        // NOTE: Using regex pattern matching for validation (not AST parsing)
+        // This is a confirmation test that validates the presence of required components
+        // For production deployment, use proper Solidity compilation and testing
         
         // Check for required protocol implementations
         const requiredPatterns = [
@@ -315,7 +343,16 @@ function testFlashLoanProtocolImplementation() {
     try {
         // Test 2.4: Validate flash loan callback implementations
         const contractPath = path.join(__dirname, '../contracts/OmniArbExecutor.sol');
+        
+        // Verify contract file exists
+        if (!fs.existsSync(contractPath)) {
+            throw new Error(`Contract file not found: ${contractPath}`);
+        }
+        
         const contractSource = fs.readFileSync(contractPath, 'utf8');
+        
+        // NOTE: Using regex pattern matching for validation
+        // This confirms the presence of required flash loan protocol components
         
         // Check for Balancer V3 flash loan implementation
         const balancerChecks = [
