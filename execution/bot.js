@@ -6,13 +6,17 @@ const { BloxRouteManager } = require('./bloxroute_manager');
 const { AggregatorSelector } = require('./aggregator_selector');
 const { OmniSDKEngine } = require('./omniarb_sdk_engine');
 const { LifiExecutionEngine } = require('./lifi_manager');
+const { TransactionBuilder } = require('./tx_builder');
+const { TransactionSigner } = require('./tx_signer');
+const { MerkleBlockBuilder } = require('./merkle_builder');
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-const EXECUTOR_ADDR = process.env.EXECUTOR_ADDRESS;
+const EXECUTOR_ADDR_POLYGON = process.env.EXECUTOR_ADDRESS_POLYGON;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 // TITAN_EXECUTION_MODE takes precedence (set by orchestrator), fallback to EXECUTION_MODE (.env)
 const EXECUTION_MODE = (process.env.TITAN_EXECUTION_MODE || process.env.EXECUTION_MODE || 'PAPER').toUpperCase();
 
+// Chain-specific RPC URLs
 const RPC_MAP = {
     1: process.env.RPC_ETHEREUM,
     137: process.env.RPC_POLYGON,
@@ -34,12 +38,14 @@ const RPC_MAP = {
 class TitanBot {
     constructor() {
         this.redis = createClient({ url: REDIS_URL });
-        this.bloxRoute = new BloxRouteManager();
+        this.bloxRoute = null;  // Initialized per-chain
+        this.merkleBuilder = new MerkleBlockBuilder();
         this.activeProviders = {};
         this.crossChainEnabled = this._parseBooleanEnv(process.env.ENABLE_CROSS_CHAIN);
         this.executionMode = EXECUTION_MODE;
         this.paperTrades = [];
         this.paperTradeCount = 0;
+        this.liveTradeCount = 0;
     }
     
     /**
@@ -52,10 +58,30 @@ class TitanBot {
         const normalized = value.toLowerCase().trim();
         return normalized === 'true' || normalized === '1' || normalized === 'yes';
     }
+    
+    /**
+     * Get executor address for a chain.
+     * @param {number} chainId - Chain ID
+     * @returns {string|null} - Executor address or null
+     */
+    _getExecutorAddress(chainId) {
+        // Chain-specific executor addresses
+        const executorMap = {
+            137: EXECUTOR_ADDR_POLYGON,
+            // Future: Add other chains when execution is enabled
+            // 1: process.env.EXECUTOR_ADDRESS_ETHEREUM,
+            // 42161: process.env.EXECUTOR_ADDRESS_ARBITRUM,
+        };
+        
+        return executorMap[chainId] || null;
+    }
 
     async init() {
         console.log("🤖 Titan Bot Starting...");
         console.log(`📋 Execution Mode: ${this.executionMode}`);
+        
+        // Print execution gates
+        TransactionSigner.printExecutionConfig();
         
         if (this.executionMode === 'PAPER') {
             console.log("📝 PAPER MODE: Trades will be simulated (no blockchain execution)");
@@ -65,6 +91,8 @@ class TitanBot {
         } else {
             console.log("🔴 LIVE MODE: Real blockchain execution enabled");
             console.log("   ⚠️  WARNING: Real funds will be used!");
+            console.log("   • Only Polygon (137) can execute transactions");
+            console.log("   • All other chains are execution-blocked");
         }
         console.log("");
         
@@ -76,11 +104,14 @@ class TitanBot {
                 process.exit(1);
             }
             
-            if (!EXECUTOR_ADDR || !/^0x[0-9a-fA-F]{40}$/.test(EXECUTOR_ADDR)) {
-                console.error('❌ CRITICAL: Invalid executor address format in .env');
+            if (!EXECUTOR_ADDR_POLYGON || !/^0x[0-9a-fA-F]{40}$/.test(EXECUTOR_ADDR_POLYGON)) {
+                console.error('❌ CRITICAL: Invalid Polygon executor address format in .env');
                 console.error('   Must be 40 hex characters with 0x prefix (e.g., 0xabcd...)');
+                console.error('   Set EXECUTOR_ADDRESS_POLYGON in .env');
                 process.exit(1);
             }
+            
+            console.log(`✅ Polygon executor: ${EXECUTOR_ADDR_POLYGON}`);
         } else {
             console.log("ℹ️  Paper mode: Skipping wallet validation");
         }
@@ -229,25 +260,39 @@ class TitanBot {
             
             const chainId = signal.chainId;
             
+            // GATE 1: Check if execution is enabled for this chain
+            if (!TransactionSigner.isExecutionEnabled(chainId)) {
+                const chainName = chainId === 1 ? 'Ethereum' : chainId === 42161 ? 'Arbitrum' : `Chain ${chainId}`;
+                console.log(`🛑 [EXECUTION GATE] ${chainName} execution is DISABLED`);
+                console.log(`   Only Polygon (137) is enabled for live execution`);
+                console.log(`   Signal ignored`);
+                return;
+            }
+            
             // Validate RPC exists
             if (!RPC_MAP[chainId]) {
                 console.error(`❌ No RPC configured for chain ${chainId}`);
                 return;
             }
             
-            // Validate credentials - check if it's a valid 64-character hex string
-            if (!PRIVATE_KEY || PRIVATE_KEY.length < 64 || !/^0x[0-9a-fA-F]{64}$/.test(PRIVATE_KEY)) {
-                console.error('❌ Invalid private key format - must be 64 hex characters with 0x prefix');
+            // Validate credentials
+            if (!PRIVATE_KEY || !/^0x[0-9a-fA-F]{64}$/.test(PRIVATE_KEY)) {
+                console.error('❌ Invalid private key format');
                 return;
             }
             
+            // Get chain-specific executor address
+            const EXECUTOR_ADDR = this._getExecutorAddress(chainId);
             if (!EXECUTOR_ADDR || EXECUTOR_ADDR === '0xYOUR_DEPLOYED_CONTRACT_ADDRESS_HERE') {
-                console.error('❌ Executor address not configured');
+                console.error(`❌ Executor address not configured for chain ${chainId}`);
                 return;
             }
             
-            console.log(`\n🎯 Processing trade signal for chain ${chainId} at ${new Date().toISOString()}`);
-            console.log(`   Token: ${signal.token}, Amount: ${signal.amount}`);
+            this.liveTradeCount++;
+            console.log(`\n🎯 [LIVE TRADE #${this.liveTradeCount}] Chain ${chainId} - ${new Date().toISOString()}`);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log(`   Token: ${signal.token}`);
+            console.log(`   Amount: ${signal.amount}`);
             console.log(`   Expected Profit: $${signal.metrics?.profit_usd || 'N/A'}`);
             console.log(`   Strategy Type: ${signal.strategy_type || 'SINGLE_CHAIN'}`);
             
@@ -324,8 +369,9 @@ class TitanBot {
                 return;
             }
 
-            // 2. Build TX with validation
-            let txRequest;
+            // 2. Build TX using TransactionBuilder
+            let unsignedTx;
+            let txMetrics;
             try {
                 const contract = new ethers.Contract(EXECUTOR_ADDR, ["function execute(uint8,address,uint256,bytes) external"], wallet);
                 
@@ -333,38 +379,58 @@ class TitanBot {
                 const gasStrategy = signal.ai_params?.priority > 50 ? 'RAPID' : 'STANDARD';
                 const fees = await gasMgr.getDynamicGasFees(gasStrategy);
                 
-                // Validate gas fees are reasonable (using same limit as GasManager)
+                // Validate gas fees are reasonable
                 const MAX_GAS_FEE_GWEI = parseFloat(process.env.MAX_BASE_FEE_GWEI || '500');
                 const maxFeeGwei = parseFloat(ethers.formatUnits(fees.maxFeePerGas || fees.gasPrice || 0n, 'gwei'));
                 
                 if (maxFeeGwei > MAX_GAS_FEE_GWEI) {
-                    console.log(`🛑 Gas fees too high (${maxFeeGwei} gwei), aborting. Max allowed: ${MAX_GAS_FEE_GWEI} gwei`);
+                    console.log(`🛑 Gas fees too high (${maxFeeGwei} gwei), aborting. Max: ${MAX_GAS_FEE_GWEI} gwei`);
                     return;
                 }
                 
-                txRequest = await contract.execute.populateTransaction(
-                    1, signal.token, signal.amount, routeData, { ...fees }
+                // Populate transaction
+                const txRequest = await contract.execute.populateTransaction(
+                    1, signal.token, signal.amount, routeData
                 );
                 
-                // Create route info object for intelligent gas estimation
+                // Create route info for gas estimation
                 const routeInfo = {
                     protocols: signal.protocols || [],
                     routerCount: (signal.routers || []).length,
                     hasAggregator: signal.use_aggregator || signal.use_paraswap || false
                 };
                 
-                // Get gas limit with route-aware fallback
+                // Estimate gas with buffer
                 const gasLimit = await gasMgr.estimateGasWithBuffer(txRequest, routeInfo);
-                txRequest.gasLimit = gasLimit;
                 
-                // Calculate and log expected cost
-                const gasPrice = fees.maxFeePerGas || fees.gasPrice;
-                const estimatedCostUSD = gasMgr.estimateGasCostUSD(gasLimit, gasPrice);
+                // Get nonce
+                const nonce = await wallet.getNonce();
                 
-                console.log(`   Gas limit: ${gasLimit.toString()}`);
-                console.log(`   Estimated cost: $${estimatedCostUSD.toFixed(2)}`);
+                // Build unsigned transaction using TransactionBuilder
+                unsignedTx = TransactionBuilder.buildTransaction({
+                    chainId: chainId,
+                    to: EXECUTOR_ADDR,
+                    data: txRequest.data,
+                    value: 0,
+                    gasLimit: gasLimit,
+                    maxFeePerGas: fees.maxFeePerGas,
+                    maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+                    nonce: nonce
+                });
                 
-                // Profit check with gas costs
+                // Get transaction metrics
+                txMetrics = TransactionBuilder.getTransactionMetrics(unsignedTx);
+                
+                console.log(`   📦 Transaction built:`);
+                console.log(`      Calldata: ${txMetrics.calldataSizeKB} KB`);
+                console.log(`      Gas limit: ${gasLimit.toString()}`);
+                console.log(`      bloXroute compatible: ${txMetrics.isBloxRouteCompatible ? 'Yes' : 'No'}`);
+                
+                // Calculate cost
+                const estimatedCostUSD = gasMgr.estimateGasCostUSD(gasLimit, fees.maxFeePerGas);
+                console.log(`   💰 Estimated cost: $${estimatedCostUSD.toFixed(2)}`);
+                
+                // Profit check
                 const expectedProfit = signal.metrics?.profit_usd || 0;
                 if (expectedProfit < estimatedCostUSD * 2) {
                     console.log(`⚠️ Profit margin too thin: $${expectedProfit} vs $${estimatedCostUSD.toFixed(2)} gas`);
@@ -376,10 +442,10 @@ class TitanBot {
                 return;
             }
 
-            // 3. Simulate with retry
+            // 3. Simulate transaction
             let isSafe = false;
             try {
-                isSafe = await simulator.simulateExecution(EXECUTOR_ADDR, txRequest.data, wallet.address);
+                isSafe = await simulator.simulateExecution(EXECUTOR_ADDR, unsignedTx.data, wallet.address);
                 if (!isSafe) {
                     console.log('🛑 SIMULATION FAILED - Transaction would revert');
                     executionStatus = 'SIMULATION_FAILED';
@@ -392,22 +458,52 @@ class TitanBot {
                 return;
             }
 
-            // 4. Execute with proper error handling
+            // 4. Sign transaction using TransactionSigner (with execution gating)
+            let signedTx;
+            try {
+                console.log('🔐 Signing transaction...');
+                signedTx = await TransactionSigner.signTransaction(
+                    unsignedTx,
+                    wallet,
+                    this.executionMode
+                );
+                console.log('✅ Transaction signed');
+            } catch (e) {
+                console.error('❌ Transaction signing blocked:', e.message);
+                executionStatus = 'SIGNING_BLOCKED';
+                return;
+            }
+
+            // 5. Execute via bloXroute or public mempool
             executionStatus = 'EXECUTING';
             try {
-                if (chainId === 137 || chainId === 56) {
-                    // Use BloxRoute for MEV protection
+                if (chainId === 137) {
+                    // Use bloXroute for Polygon with Merkle bundle
                     try {
-                        const signedTx = await wallet.signTransaction(txRequest);
                         const blockNumber = await provider.getBlockNumber();
-                        const res = await this.bloxRoute.submitBundle([signedTx], blockNumber);
+                        
+                        // Build Merkle root for bundle integrity
+                        const merkleRoot = this.merkleBuilder.buildMerkleRoot([signedTx]);
+                        
+                        // Initialize bloXroute manager for this chain
+                        const bloxRoute = new BloxRouteManager(chainId);
+                        
+                        // Submit bundle with Merkle root
+                        const res = await bloxRoute.submitBundle(
+                            [signedTx], 
+                            blockNumber,
+                            { merkleRoot, avoidMempool: true }
+                        );
                         
                         if (res && res.result) {
-                            console.log(`🚀 BloxRoute bundle submitted:`, res.result);
+                            console.log(`🚀 [BLOXROUTE] Bundle submitted successfully`);
+                            if (res.result.bundleHash) {
+                                console.log(`   Bundle Hash: ${res.result.bundleHash}`);
+                            }
                             executionStatus = 'BLOXROUTE_SUBMITTED';
                         } else {
-                            console.log('⚠️ BloxRoute submission uncertain, falling back to public mempool');
-                            const tx = await wallet.sendTransaction(txRequest);
+                            console.log('⚠️ bloXroute submission uncertain, falling back to public mempool');
+                            const tx = await wallet.sendTransaction(unsignedTx);
                             console.log(`✅ TX (fallback): ${tx.hash}`);
                             executionStatus = 'PUBLIC_MEMPOOL';
                             
@@ -415,8 +511,8 @@ class TitanBot {
                             this._monitorTransaction(tx, provider, signal);
                         }
                     } catch (bloxError) {
-                        console.error('⚠️ BloxRoute failed:', bloxError.message, '- Using public mempool');
-                        const tx = await wallet.sendTransaction(txRequest);
+                        console.error('⚠️ bloXroute failed:', bloxError.message, '- Using public mempool');
+                        const tx = await wallet.sendTransaction(unsignedTx);
                         console.log(`✅ TX (fallback): ${tx.hash}`);
                         executionStatus = 'PUBLIC_MEMPOOL';
                         

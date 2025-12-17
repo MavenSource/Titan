@@ -1,64 +1,150 @@
-const { MerkleTree } = require('merkletreejs');
-const keccak256 = require('keccak256');
+/**
+ * TITAN MERKLE BUNDLE BUILDER
+ * ============================
+ * 
+ * Production-grade Merkle tree construction for transaction bundles.
+ * 
+ * FEATURES:
+ * - Deterministic bundle integrity via Merkle roots
+ * - MEV relay compatibility
+ * - Gas optimization for batched execution
+ * - Auditability and verification
+ */
+
 const { ethers } = require('ethers');
 
 class MerkleBlockBuilder {
     constructor() {
-        this.tree = null;
         this.leaves = [];
-        this.maxBatchSize = 256; // Support up to 256 trades per batch
+        this.maxBatchSize = 256; // Support up to 256 transactions per batch
     }
 
     /**
-     * Encodes a trade instruction into a leaf hash.
-     * @param {string} token - Token Address
-     * @param {string} amount - Amount
-     * @param {string} router - Router Address
-     * @param {string} calldata - Swap Calldata
+     * Hash a raw transaction for Merkle tree.
+     * 
+     * @param {string} rawTx - Raw signed transaction (hex string)
+     * @returns {string} Keccak256 hash of the transaction
      */
-    createLeaf(token, amount, router, calldata) {
-        // Equivalent to Solidity: keccak256(abi.encodePacked(token, amount, router, calldata))
-        const leaf = ethers.solidityPackedKeccak256(
-            ['address', 'uint256', 'address', 'bytes'],
-            [token, amount, router, calldata]
-        );
-        return leaf;
+    hashTransaction(rawTx) {
+        return ethers.keccak256(rawTx);
     }
 
     /**
-     * Builds the Merkle Tree from a list of trade objects.
-     * @param {Array} trades - List of trade objects {token, amount, router, data}
+     * Build Merkle root from array of raw transactions.
+     * 
+     * Uses simple binary tree construction with keccak256 hashing.
+     * This is deterministic and compatible with bloXroute MEV relay.
+     * 
+     * @param {Array<string>} rawTransactions - Array of raw signed transactions
+     * @returns {string} Merkle root hash
      */
-    buildBatch(trades) {
-        console.log(`🌳 Merkle: Compressing ${trades.length} trades into block...`);
+    buildMerkleRoot(rawTransactions) {
+        if (!rawTransactions || rawTransactions.length === 0) {
+            throw new Error('Cannot build Merkle root from empty transaction array');
+        }
         
-        // 1. Generate Leaves
-        this.leaves = trades.map(t => this.createLeaf(t.token, t.amount, t.router, t.data));
+        console.log(`🌳 [MERKLE] Building Merkle tree for ${rawTransactions.length} transactions...`);
         
-        // 2. Build Tree
-        this.tree = new MerkleTree(this.leaves, keccak256, { sortPairs: true });
+        // Hash each transaction to create leaves
+        let level = rawTransactions.map(tx => this.hashTransaction(tx));
+        this.leaves = [...level];  // Store leaves for proof generation
         
-        const root = this.tree.getHexRoot();
-        console.log(`✅ Merkle Root Generated: ${root}`);
+        // Build tree level by level
+        while (level.length > 1) {
+            const nextLevel = [];
+            
+            for (let i = 0; i < level.length; i += 2) {
+                const left = level[i];
+                const right = level[i + 1] || left;  // Duplicate last if odd
+                
+                // Concatenate and hash
+                const combined = ethers.concat([left, right]);
+                const parentHash = ethers.keccak256(combined);
+                
+                nextLevel.push(parentHash);
+            }
+            
+            level = nextLevel;
+        }
+        
+        const root = level[0];
+        console.log(`✅ [MERKLE] Root generated: ${root}`);
         
         return root;
     }
-
+    
     /**
-     * Generates the Proof for a specific trade index.
-     * Required for the smart contract to verify the trade is part of the batch.
+     * Generate Merkle proof for a specific transaction.
+     * 
+     * @param {number} txIndex - Index of transaction in bundle
+     * @param {Array<string>} rawTransactions - All raw transactions in bundle
+     * @returns {Array<Object>} Merkle proof path with position indicators
      */
-    getProof(tradeIndex) {
-        if (!this.leaves[tradeIndex]) return [];
-        const leaf = this.leaves[tradeIndex];
-        return this.tree.getHexProof(leaf);
+    generateProof(txIndex, rawTransactions) {
+        if (txIndex < 0 || txIndex >= rawTransactions.length) {
+            throw new Error(`Invalid transaction index: ${txIndex}`);
+        }
+        
+        const proof = [];
+        let level = rawTransactions.map(tx => this.hashTransaction(tx));
+        let index = txIndex;
+        
+        while (level.length > 1) {
+            const isRightNode = index % 2 === 1;
+            const siblingIndex = isRightNode ? index - 1 : index + 1;
+            
+            if (siblingIndex < level.length) {
+                // Normal case: sibling exists
+                proof.push({
+                    hash: level[siblingIndex],
+                    position: isRightNode ? 'left' : 'right'
+                });
+            } else {
+                // Odd case: no sibling, node is duplicated
+                proof.push({
+                    hash: level[index],
+                    position: 'right'  // Duplicate goes on right
+                });
+            }
+            
+            // Build next level
+            const nextLevel = [];
+            for (let i = 0; i < level.length; i += 2) {
+                const left = level[i];
+                const right = level[i + 1] || left;
+                const combined = ethers.concat([left, right]);
+                const parentHash = ethers.keccak256(combined);
+                nextLevel.push(parentHash);
+            }
+            
+            level = nextLevel;
+            index = Math.floor(index / 2);
+        }
+        
+        return proof;
     }
     
     /**
-     * Verifies a leaf locally (Sanity Check)
+     * Verify a Merkle proof.
+     * 
+     * @param {string} root - Merkle root
+     * @param {string} leaf - Transaction hash (leaf)
+     * @param {Array<Object>} proof - Merkle proof path with positions
+     * @returns {boolean} True if proof is valid
      */
-    verify(root, leaf, proof) {
-        return this.tree.verify(proof, leaf, root);
+    verifyProof(root, leaf, proof) {
+        let computedHash = leaf;
+        
+        for (const proofElement of proof) {
+            // Combine hashes based on position
+            const combined = proofElement.position === 'left'
+                ? ethers.concat([proofElement.hash, computedHash])
+                : ethers.concat([computedHash, proofElement.hash]);
+            
+            computedHash = ethers.keccak256(combined);
+        }
+        
+        return computedHash === root;
     }
 
     /**
