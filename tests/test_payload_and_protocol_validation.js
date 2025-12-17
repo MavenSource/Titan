@@ -64,6 +64,49 @@ const FLASH_SOURCES = {
     AAVE: 2
 };
 
+// =============================================================================
+// UTILITY FUNCTIONS
+// =============================================================================
+
+/**
+ * Read contract source file with error handling
+ * @param {string} contractName - Name of the contract file
+ * @returns {string} Contract source code
+ * @throws {Error} If file doesn't exist or can't be read
+ */
+function readContractSource(contractName) {
+    const contractPath = path.join(__dirname, '../contracts', contractName);
+    
+    if (!fs.existsSync(contractPath)) {
+        throw new Error(`Contract file not found: ${contractPath}`);
+    }
+    
+    try {
+        return fs.readFileSync(contractPath, 'utf8');
+    } catch (error) {
+        throw new Error(`Failed to read contract file ${contractName}: ${error.message}`);
+    }
+}
+
+/**
+ * Write validation report with error handling
+ * @param {Object} report - Report data to write
+ * @param {string} filePath - Output file path
+ */
+function writeValidationReport(report, filePath) {
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(report, null, 2), 'utf8');
+        console.log(`\n📄 Detailed report saved: ${filePath}`);
+    } catch (error) {
+        console.error(`\n⚠️  Warning: Failed to write validation report: ${error.message}`);
+        console.error(`   Report will not be saved to disk`);
+    }
+}
+
+// =============================================================================
+// TEST TRACKING
+// =============================================================================
+
 console.log('╔════════════════════════════════════════════════════════════════╗');
 console.log('║  PAYLOAD BUILD & SMART CONTRACT PROTOCOL VALIDATION            ║');
 console.log('║  Testing: Transaction Payload + Swap + Flash Loan Protocols    ║');
@@ -259,14 +302,7 @@ console.log('─'.repeat(70));
 function testSwapProtocolImplementation() {
     try {
         // Test 2.1: Validate contract source code for swap implementation
-        const contractPath = path.join(__dirname, '../contracts/OmniArbExecutor.sol');
-        
-        // Verify contract file exists
-        if (!fs.existsSync(contractPath)) {
-            throw new Error(`Contract file not found: ${contractPath}`);
-        }
-        
-        const contractSource = fs.readFileSync(contractPath, 'utf8');
+        const contractSource = readContractSource('OmniArbExecutor.sol');
         
         // NOTE: Using regex pattern matching for validation (not AST parsing)
         // This is a confirmation test that validates the presence of required components
@@ -342,14 +378,7 @@ function testSwapProtocolImplementation() {
 function testFlashLoanProtocolImplementation() {
     try {
         // Test 2.4: Validate flash loan callback implementations
-        const contractPath = path.join(__dirname, '../contracts/OmniArbExecutor.sol');
-        
-        // Verify contract file exists
-        if (!fs.existsSync(contractPath)) {
-            throw new Error(`Contract file not found: ${contractPath}`);
-        }
-        
-        const contractSource = fs.readFileSync(contractPath, 'utf8');
+        const contractSource = readContractSource('OmniArbExecutor.sol');
         
         // NOTE: Using regex pattern matching for validation
         // This confirms the presence of required flash loan protocol components
@@ -548,8 +577,7 @@ function testCompleteExecutionFlow() {
 function testProtocolConfiguration() {
     try {
         // Test 3.2: Validate protocol configuration
-        const contractPath = path.join(__dirname, '../contracts/OmniArbExecutor.sol');
-        const contractSource = fs.readFileSync(contractPath, 'utf8');
+        const contractSource = readContractSource('OmniArbExecutor.sol');
         
         // Check for configurable parameters
         const configChecks = [
@@ -660,8 +688,7 @@ async function runAllValidations() {
     };
     
     const reportPath = path.join(__dirname, '../validation_report.json');
-    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
-    console.log(`\n📄 Detailed report saved: ${reportPath}`);
+    writeValidationReport(report, reportPath);
     
     if (failCount === 0) {
         console.log('\n═══════════════════════════════════════════════════════════════');
