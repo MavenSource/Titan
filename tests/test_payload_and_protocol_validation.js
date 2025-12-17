@@ -23,7 +23,10 @@ const fs = require('fs');
 const path = require('path');
 
 try {
-    ethers = require('ethers').ethers;
+    // Import ethers (v6 exports ethers as default)
+    const ethersModule = require('ethers');
+    ethers = ethersModule.ethers || ethersModule; // Handle both v5 and v6
+    
     const txBuilderModule = require('../execution/tx_builder');
     TransactionBuilder = txBuilderModule.TransactionBuilder;
     
