@@ -27,6 +27,17 @@ const { BloxRouteManager } = require('./execution/bloxroute_manager');
 // Test configuration
 const POLYGON_CHAIN_ID = 137;
 const TEST_EXECUTOR_ADDRESS = '0x1234567890123456789012345678901234567890';
+const TEST_BLOCK_NUMBER = 50000000; // Placeholder for bloXroute submission
+const OVERSIZED_CALLDATA_LENGTH = 35000; // 35KB - exceeds 32KB limit
+
+// Test trading signal constants
+const TEST_SIGNAL = {
+    USDC_ADDRESS: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', // USDC on Polygon
+    AMOUNT: '1000', // USDC amount
+    DECIMALS: 6,
+    EXPECTED_PROFIT: 15.50,
+    GAS_COST: 0.25
+};
 
 console.log('╔════════════════════════════════════════════════════════════════╗');
 console.log('║       TITAN FULL-SCALE TRANSACTION FLOW TEST                   ║');
@@ -58,15 +69,15 @@ console.log('─'.repeat(70));
 // Create a realistic trading signal (matches bot.js signal structure)
 const tradingSignal = {
     chainId: POLYGON_CHAIN_ID,
-    token: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', // USDC on Polygon
-    amount: ethers.parseUnits('1000', 6), // 1000 USDC
+    token: TEST_SIGNAL.USDC_ADDRESS,
+    amount: ethers.parseUnits(TEST_SIGNAL.AMOUNT, TEST_SIGNAL.DECIMALS),
     type: 'INTRA_CHAIN',
     strategy_type: 'SINGLE_CHAIN',
     dex: 'QuickSwap',
     metrics: {
-        profit_usd: 15.50,
-        gas_cost_usd: 0.25,
-        net_profit_usd: 15.25
+        profit_usd: TEST_SIGNAL.EXPECTED_PROFIT,
+        gas_cost_usd: TEST_SIGNAL.GAS_COST,
+        net_profit_usd: TEST_SIGNAL.EXPECTED_PROFIT - TEST_SIGNAL.GAS_COST
     },
     timestamp: Date.now()
 };
@@ -84,7 +95,7 @@ try {
     console.log('   Signal Details:');
     console.log(`   • Chain ID: ${tradingSignal.chainId} (Polygon)`);
     console.log(`   • Token: ${tradingSignal.token}`);
-    console.log(`   • Amount: ${ethers.formatUnits(tradingSignal.amount, 6)} USDC`);
+    console.log(`   • Amount: ${ethers.formatUnits(tradingSignal.amount, TEST_SIGNAL.DECIMALS)} USDC`);
     console.log(`   • Expected Profit: $${tradingSignal.metrics.profit_usd}`);
     
     testPass('Signal generation and validation');
@@ -182,7 +193,7 @@ try {
 // Test calldata limit enforcement
 try {
     console.log('\n   Testing 32KB Limit Enforcement:');
-    const largeCalldata = '0x' + '12'.repeat(35000); // 35KB - should fail
+    const largeCalldata = '0x' + '12'.repeat(OVERSIZED_CALLDATA_LENGTH);
     
     TransactionBuilder.buildTransaction({
         chainId: POLYGON_CHAIN_ID,
@@ -198,7 +209,7 @@ try {
     testFail('32KB limit enforcement', 'Large calldata should have been rejected');
 } catch (error) {
     if (error.message.includes('exceeds 32KB limit')) {
-        console.log('   ✓ Large calldata (35KB) correctly rejected');
+        console.log(`   ✓ Large calldata (${OVERSIZED_CALLDATA_LENGTH / 1000}KB) correctly rejected`);
         testPass('32KB limit enforcement');
     } else {
         testFail('32KB limit enforcement', error.message);
@@ -362,7 +373,7 @@ function testBloxRouteSubmission(merkleRoot) {
         const bundlePayload = {
             transactions: [signedTx],
             merkleRoot: merkleRoot,
-            blockNumber: 50000000, // Placeholder block number
+            blockNumber: TEST_BLOCK_NUMBER,
             avoidMempool: true
         };
         
