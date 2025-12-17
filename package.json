@@ -15,6 +15,7 @@
     "deploy:optimism": "npx hardhat run scripts/deploy.js --network optimism",
     "deploy:base": "npx hardhat run scripts/deploy.js --network base",
     "test": "npx hardhat test && python test_phase1.py",
+    "test:full-scale": "node test_full_scale_transaction.js",
     "audit": "python audit_system.py",
     "health": "node -v && python --version",
     "clean": "npx hardhat clean",
