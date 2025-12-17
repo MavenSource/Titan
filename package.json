@@ -3,6 +3,9 @@
   "version": "4.2.0",
   "description": "Multi-Chain Arbitrage & Flash Loan Execution System with AI-Powered Intelligence",
   "main": "execution/bot.js",
+  "resolutions": {
+    "ethers": "6.7.1"
+  },
   "scripts": {
     "start": "node execution/bot.js",
     "brain": "python ml/brain.py",
