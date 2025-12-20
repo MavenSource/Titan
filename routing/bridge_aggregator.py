@@ -115,7 +115,15 @@ class BridgeAggregator:
                     "tx_data": data.get('transactionRequest', {})
                 }
             elif res.status_code == 404:
-                logger.warning(f"No route found from chain {src_chain} to {dst_chain}")
+                logger.debug(f"No route found from chain {src_chain} to {dst_chain}")
+                return None
+            elif res.status_code == 400:
+                # Token validation errors are expected - log as debug
+                error_data = res.json() if res.text else {}
+                if 'deny list' in str(error_data) or 'invalid' in str(error_data).lower():
+                    logger.debug(f"Token not supported for bridge route {src_chain}->{dst_chain}")
+                else:
+                    logger.warning(f"Li.Fi API validation error: {res.text}")
                 return None
             else:
                 logger.error(f"Li.Fi API error: {res.status_code} - {res.text}")

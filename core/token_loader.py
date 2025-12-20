@@ -1,5 +1,6 @@
 import requests
 import json
+from web3 import Web3
 
 class TokenLoader:
     # 1inch Token Registry (Aggregates standard tokens across chains)
@@ -16,13 +17,19 @@ class TokenLoader:
             data = res.json()
             
             # Convert dict to clean list [ {symbol, address, decimals} ]
+            # Convert all addresses to checksum format
             tokens = []
             for addr, details in data.items():
-                tokens.append({
-                    "symbol": details['symbol'],
-                    "address": addr,
-                    "decimals": details['decimals']
-                })
+                try:
+                    checksum_addr = Web3.to_checksum_address(addr)
+                    tokens.append({
+                        "symbol": details['symbol'],
+                        "address": checksum_addr,
+                        "decimals": details['decimals']
+                    })
+                except Exception:
+                    # Skip invalid addresses
+                    continue
             
             print(f"   ✅ Loaded {len(tokens)} tokens.")
             return tokens

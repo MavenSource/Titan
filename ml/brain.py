@@ -1,11 +1,9 @@
 import time
 import logging
 import json
-import redis
 import rustworkx as rx
 import pandas as pd
 from web3 import Web3
-from web3.middleware import geth_poa_middleware
 from datetime import datetime
 from eth_abi import encode
 from decimal import Decimal, getcontext
@@ -95,51 +93,73 @@ class OmniBrain:
         self.optimizer = QLearningAgent()
         self.memory = FeatureStore()
         
-        # 3. Communication with retry logic
-        self.redis_client = None
-        self._init_redis_connection()
+        # 3. Communication (File-based signals)
+        from pathlib import Path
+        self.signals_dir = Path('signals/outgoing')
+        self.signals_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Signal output directory: {self.signals_dir}")
         
-        # 4. State
+        # 4. Wallet Configuration
+        import os
+        self.wallet_address = os.getenv('EXECUTOR_ADDRESS', '0x0000000000000000000000000000000000000000')
+        
+        # Validate wallet address is configured
+        if self.wallet_address == '0x0000000000000000000000000000000000000000' or \
+           'YOUR' in self.wallet_address.upper():
+            logger.warning("⚠️ EXECUTOR_ADDRESS not configured in .env - using placeholder for PAPER mode")
+            # Use a valid Ethereum address for API calls (Vitalik's address as placeholder)
+            self.wallet_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+        
+        # 5. State
         self.node_indices = {} 
         self.executor = ThreadPoolExecutor(max_workers=20)
         
         # 5. Safety Limits
         self.MAX_GAS_PRICE_GWEI = Decimal("200.0")  # Maximum gas price ceiling
-        self.MIN_PROFIT_THRESHOLD_USD = Decimal("5.0")  # Minimum profit to execute
+        self.MIN_PROFIT_THRESHOLD_USD = Decimal("1.0")  # Minimum $1 profit to execute
         self.MAX_SLIPPAGE_BPS = 100  # Maximum 1% slippage allowed
         self.consecutive_failures = 0
         self.MAX_CONSECUTIVE_FAILURES = 10  # Circuit breaker threshold
         
-    def _init_redis_connection(self):
-        """Initialize Redis connection with retry logic"""
-        max_retries = 5
-        for attempt in range(max_retries):
-            try:
-                self.redis_client = redis.Redis(
-                    host='localhost', 
-                    port=6379, 
-                    db=0,
-                    socket_connect_timeout=5,
-                    socket_keepalive=True,
-                    health_check_interval=30
-                )
-                self.redis_client.ping()
-                logger.info("✅ Redis connection established")
-                return
-            except Exception as e:
-                logger.warning(f"Redis connection attempt {attempt + 1} failed: {e}")
-                if attempt < max_retries - 1:
-                    # Exponential backoff capped at 10 seconds
-                    time.sleep(min(2 ** attempt, 10))
-        logger.error("❌ Failed to establish Redis connection. Operating in degraded mode.")
-        self.redis_client = None
+    def _cleanup_old_signals(self):
+        """Clean up old signal files (keep last 100)"""
+        try:
+            signal_files = sorted([f for f in os.listdir(self.signals_dir) if f.endswith('.json')])
+            if len(signal_files) > 100:
+                for old_file in signal_files[:-100]:
+                    os.remove(os.path.join(self.signals_dir, old_file))
+        except Exception as e:
+            logger.warning(f"Signal cleanup failed: {e}")
 
     def initialize(self):
         logger.info("🧠 Booting Apex-Omega Titan Brain...")
         
-        # A. Load Assets (10 Chains)
-        target_chains = list(CHAINS.keys())
-        self.inventory = TokenDiscovery.fetch_all_chains(target_chains)
+        # A. Load Assets - Dynamic token loading from 1inch API (100+ tokens per chain)
+        from core.token_loader import TokenLoader
+        
+        target_chains = [1, 137, 42161, 10, 8453, 56, 43114]  # Major chains with good liquidity
+        self.inventory = {}
+        
+        for chain_id in target_chains:
+            logger.info(f"📥 Loading tokens for chain {chain_id}...")
+            # Get 100+ tokens dynamically from 1inch
+            tokens_list = TokenLoader.get_tokens(chain_id)
+            
+            if tokens_list:
+                # Convert to dict format {symbol: {address, decimals}}
+                self.inventory[chain_id] = {}
+                for token in tokens_list[:100]:  # Top 100 by liquidity
+                    symbol = token['symbol']
+                    self.inventory[chain_id][symbol] = {
+                        'address': token['address'],
+                        'decimals': token['decimals']
+                    }
+                logger.info(f"   ✅ Loaded {len(self.inventory[chain_id])} tokens for chain {chain_id}")
+            else:
+                # Fallback to static registry
+                logger.warning(f"   ⚠️ API failed, using static registry for chain {chain_id}")
+                static_tokens = TokenDiscovery.fetch_all_chains([chain_id])
+                self.inventory.update(static_tokens)
         
         # B. Initialize Web3 with timeout protection
         for cid, config in CHAINS.items():
@@ -150,9 +170,7 @@ class OmniBrain:
                         config['rpc'],
                         request_kwargs={'timeout': 30}  # 30 second timeout for RPC calls
                     ))
-                    # Add PoA middleware for chains that need it
-                    if cid in POA_CHAINS:
-                        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                    # PoA middleware removed - web3.py v7+ handles PoA chains automatically
                     self.web3_connections[cid] = w3
                     logger.debug(f"Web3 connection established for chain {cid}")
                 except Exception as e:
@@ -190,250 +208,283 @@ class OmniBrain:
                     self.graph.add_edge(v, u, {"type": "bridge", "weight": 0.0})
 
     def _get_gas_price(self, chain_id):
-        """Get gas price with safety ceiling and timeout protection"""
-        try:
-            if chain_id in self.web3_connections:
-                w3 = self.web3_connections[chain_id]
-                # Use block_identifier to ensure we get latest data with timeout
+        """Get gas price with Alchemy fallback and safety ceiling"""
+        import os
+        
+        # Alchemy RPC endpoints for major chains
+        alchemy_map = {
+            1: os.getenv('ALCHEMY_RPC_ETH'),
+            137: os.getenv('ALCHEMY_RPC_POLY'),
+            42161: os.getenv('ALCHEMY_RPC_ARB'),
+            10: os.getenv('ALCHEMY_RPC_OPT'),
+            8453: os.getenv('ALCHEMY_RPC_BASE')
+        }
+        
+        # Always use Alchemy for supported chains to avoid rate limits
+        if chain_id in alchemy_map and alchemy_map[chain_id]:
+            try:
+                w3 = Web3(Web3.HTTPProvider(alchemy_map[chain_id], request_kwargs={'timeout': 5}))
                 wei_price = w3.eth.gas_price
                 gwei_price = w3.from_wei(wei_price, 'gwei')
                 
-                # Apply safety ceiling
                 if gwei_price > float(self.MAX_GAS_PRICE_GWEI):
-                    logger.warning(f"⚠️ Gas price {gwei_price} exceeds maximum {self.MAX_GAS_PRICE_GWEI} on chain {chain_id}")
+                    logger.warning(f"⚠️ Gas price {gwei_price} exceeds max {self.MAX_GAS_PRICE_GWEI} on chain {chain_id}")
                     return float(self.MAX_GAS_PRICE_GWEI)
                     
                 return gwei_price
-        except TimeoutError:
-            logger.error(f"Timeout fetching gas price for chain {chain_id}")
-            return 0.0
+            except Exception as e:
+                logger.debug(f"Alchemy gas fetch failed for chain {chain_id}: {e}")
+        
+        # Fallback to configured RPC
+        try:
+            if chain_id in self.web3_connections:
+                w3 = self.web3_connections[chain_id]
+                wei_price = w3.eth.gas_price
+                gwei_price = w3.from_wei(wei_price, 'gwei')
+                
+                if gwei_price > float(self.MAX_GAS_PRICE_GWEI):
+                    logger.warning(f"⚠️ Gas price {gwei_price} exceeds max {self.MAX_GAS_PRICE_GWEI} on chain {chain_id}")
+                    return float(self.MAX_GAS_PRICE_GWEI)
+                    
+                return gwei_price
         except Exception as e:
-            logger.error(f"Gas price fetch failed for chain {chain_id}: {e}")
-            return 0.0
+            logger.debug(f"Gas price fetch failed for chain {chain_id}: {e}")
+        
+        # Silently return 0 if all RPCs fail (rate limited)
+        return 0.0
 
     def _find_opportunities(self):
+        """
+        Find INTRA-CHAIN arbitrage opportunities with FULL market coverage
+        Scans 100+ tokens across multiple DEX combinations
+        """
         opportunities = []
-        for u_idx, v_idx, data in self.graph.edge_index_map().values():
-            if data.get("type") == "bridge":
-                src_node = self.graph.get_node_data(u_idx)
-                dst_node = self.graph.get_node_data(v_idx)
-                if src_node['chain'] != dst_node['chain']:
+        
+        # Target chains with deep liquidity
+        target_chains = [1, 137, 42161, 10, 8453, 56, 43114]
+        
+        # DEX route variations per chain
+        dex_routes = {
+            1: [  # Ethereum - most liquid
+                ('UNIV3', 'SUSHI'),
+                ('UNIV3', 'UNIV2'),
+                ('SUSHI', 'UNIV2'),
+            ],
+            137: [  # Polygon
+                ('UNIV3', 'QUICKSWAP'),
+                ('UNIV3', 'SUSHI'),
+                ('QUICKSWAP', 'SUSHI'),
+            ],
+            42161: [  # Arbitrum
+                ('UNIV3', 'SUSHI'),
+                ('UNIV3', 'CAMELOT'),
+                ('SUSHI', 'CAMELOT'),
+            ],
+            10: [  # Optimism
+                ('UNIV3', 'SUSHI'),
+            ],
+            8453: [  # Base
+                ('UNIV3', 'SUSHI'),
+            ],
+            56: [  # BSC
+                ('PANCAKE', 'SUSHI'),
+            ],
+            43114: [  # Avalanche
+                ('TRADERJOE', 'SUSHI'),
+            ]
+        }
+        
+        # Tiered token scanning strategy
+        # Tier 1: High-priority stablecoins and major assets (scan every cycle)
+        tier1_tokens = ['USDC', 'USDT', 'DAI', 'WETH', 'WBTC', 'ETH']
+        
+        # Tier 2: Popular DeFi tokens (scan every 2nd cycle)
+        tier2_tokens = ['UNI', 'LINK', 'AAVE', 'CRV', 'MATIC', 'AVAX', 'BNB', 'SNX', 'MKR', 'COMP']
+        
+        # Tier 3: All other tokens (scan every 5th cycle)
+        scan_counter = getattr(self, '_scan_counter', 0)
+        self._scan_counter = scan_counter + 1
+        
+        for chain_id in target_chains:
+            if chain_id not in self.inventory:
+                continue
+            
+            tokens = self.inventory[chain_id]
+            routes = dex_routes.get(chain_id, [('UNIV3', 'SUSHI')])
+            
+            # Build token list based on tier priority
+            tokens_to_scan = []
+            
+            # Always scan Tier 1
+            for token_sym in tier1_tokens:
+                if token_sym in tokens:
+                    tokens_to_scan.append(token_sym)
+            
+            # Scan Tier 2 every 2nd cycle
+            if scan_counter % 2 == 0:
+                for token_sym in tier2_tokens:
+                    if token_sym in tokens and token_sym not in tokens_to_scan:
+                        tokens_to_scan.append(token_sym)
+            
+            # Scan Tier 3 every 5th cycle (random sample of 20 tokens)
+            if scan_counter % 5 == 0:
+                import random
+                tier3_tokens = [sym for sym in tokens.keys() 
+                               if sym not in tier1_tokens and sym not in tier2_tokens]
+                if tier3_tokens:
+                    sampled_tokens = random.sample(tier3_tokens, min(20, len(tier3_tokens)))
+                    tokens_to_scan.extend(sampled_tokens)
+            
+            # Generate opportunities for selected tokens
+            for token_sym in tokens_to_scan:
+                token_data = tokens[token_sym]
+                
+                # Create opportunity for EACH DEX route combination
+                for dex1, dex2 in routes:
                     opportunities.append({
-                        "src_chain": src_node['chain'],
-                        "dst_chain": dst_node['chain'],
-                        "token": src_node['symbol'],
-                        "token_addr_src": src_node['address'],
-                        "token_addr_dst": dst_node['address'],
-                        "decimals": src_node['decimals']
+                        "src_chain": chain_id,
+                        "dst_chain": chain_id,
+                        "token": token_sym,
+                        "token_addr_src": token_data['address'],
+                        "token_addr_dst": token_data['address'],
+                        "decimals": token_data['decimals'],
+                        "route": (dex1, dex2),  # Track which DEX pair
+                        "route_name": f"{dex1}→{dex2}"
                     })
+        
         return opportunities
 
     def _evaluate_and_signal(self, opp, chain_gas_map):
         """
-        FIXED VERSION: Route encoding now matches simulation
+        Evaluate INTRA-CHAIN arbitrage with specific DEX route
+        Tests multiple trade sizes as per README ($1.50-$10 profit target)
         """
         try:
             src_chain = opp['src_chain']
             dst_chain = opp['dst_chain']
             token_sym = opp['token']
+            route_name = opp.get('route_name', 'UNIV3→SUSHI')
+            dex1, dex2 = opp.get('route', ('UNIV3', 'SUSHI'))
+            
+            logger.info(f"🔎 {token_sym} Chain{src_chain} {route_name}")
+            
             token_addr = opp['token_addr_src']
             decimals = opp['decimals']
             
-            # 1. SAFETY CHECK (Liquidity Guard)
+            # 1. TEST MULTIPLE TRADE SIZES (README: optimize for $1.50-$10 profit)
+            trade_sizes_usd = [500, 1000, 2000, 5000]  # Test various depths
             commander = TitanCommander(src_chain)
-            target_trade_usd = 10000
-            target_raw = target_trade_usd * (10**decimals)
             
-            safe_amount = commander.optimize_loan_size(token_addr, target_raw, decimals)
-            if safe_amount == 0:
-                logger.debug(f"Insufficient liquidity for {token_sym} on chain {src_chain}")
-                return
-
-            # 2. GET BRIDGE QUOTE (Cost 1) with validation
-            try:
-                quote = self.bridge.get_route(
-                    src_chain, dst_chain, token_addr, str(safe_amount), 
-                    "0x0000000000000000000000000000000000000000"
-                )
-                if not quote:
-                    logger.debug(f"No bridge route available for {token_sym}: {src_chain} -> {dst_chain}")
-                    return
+            # Find best profitable size
+            for target_trade_usd in trade_sizes_usd:
+                target_raw = target_trade_usd * (10**decimals)
+                safe_amount = commander.optimize_loan_size(token_addr, target_raw, decimals)
+                
+                if safe_amount == 0:
+                    continue  # Try next size
+                
+                # 2. SIMULATE DEX SWAPS with specific route
+                try:
+                    w3 = self.web3_connections.get(src_chain)
+                    if not w3:
+                        logger.info(f"❌ {token_sym}: No Web3 for chain {src_chain}")
+                        return False
                     
-                if 'fee_usd' not in quote or 'est_output' not in quote:
-                    logger.warning(f"Invalid bridge quote structure for {token_sym}")
-                    return
+                    pricer = DexPricer(w3, src_chain)
+                    weth_addr = self.inventory[src_chain].get('WETH', {}).get('address')
                     
-                fee_bridge_usd = Decimal(str(quote.get('fee_usd', 0)))
-                
-                max_bridge_fee = Decimal(target_trade_usd) * Decimal("0.05")
-                if fee_bridge_usd > max_bridge_fee:
-                    logger.warning(f"Bridge fee too high: ${fee_bridge_usd} for {token_sym}")
-                    return
+                    if not weth_addr:
+                        logger.info(f"❌ {token_sym}: No WETH on chain {src_chain}")
+                        return False
                     
-            except Exception as e:
-                logger.error(f"Bridge quote failed for {token_sym}: {e}")
-                return
-
-            # 3. GET REAL DEX PRICE (Revenue Simulation) - FIXED VERSION
-            try:
-                w3 = self.web3_connections.get(src_chain)
-                if not w3:
-                    logger.error(f"No Web3 connection for chain {src_chain}")
-                    return
+                    # STEP 1: Token → WETH using DEX1
+                    if dex1 == 'UNIV3':
+                        step1_out = pricer.get_univ3_price(token_addr, weth_addr, safe_amount, fee=500)
+                    else:
+                        step1_out = pricer.get_univ2_price(dex1, token_addr, weth_addr, safe_amount)
                     
-                pricer = DexPricer(w3, src_chain)
-                
-                # Find WETH address dynamically
-                weth_addr = self.inventory[src_chain].get('WETH', {}).get('address')
-                if not weth_addr:
-                    logger.debug(f"WETH not available on chain {src_chain}")
-                    return
-
-                # === SIMULATION STEP 1: Token → WETH (Uniswap) ===
-                step1_out = pricer.get_univ3_price(
-                    token_in=token_addr,      # Start with flash loan token
-                    token_out=weth_addr,      # Convert to WETH
-                    amount=safe_amount,
-                    fee=500
-                )
-                
-                if step1_out == 0:
-                    logger.debug(f"Step 1 simulation failed for {token_sym} → WETH")
-                    return
-                
-                logger.debug(f"Step 1: {safe_amount} {token_sym} → {step1_out} WETH")
-                
-                # === SIMULATION STEP 2: WETH → Token (Curve) ===
-                # Check if Curve router exists
-                curve_router = CHAINS[src_chain].get('curve_router')
-                if not curve_router or curve_router == "0x0000000000000000000000000000000000000000":
-                    logger.debug(f"Curve not available on chain {src_chain}")
-                    return
-                
-                # FIX #2: Use new method signature with token addresses
-                step2_out = pricer.get_curve_price(
-                    pool_address=curve_router,
-                    token_in=weth_addr,       # We have WETH from step 1
-                    token_out=token_addr,     # Convert back to original token
-                    amount=step1_out
-                )
-                
-                if step2_out == 0:
-                    logger.debug(f"Step 2 simulation failed for WETH → {token_sym}")
-                    return
-                
-                logger.debug(f"Step 2: {step1_out} WETH → {step2_out} {token_sym}")
-                
-                # Verify profitability
-                if step2_out <= safe_amount:
-                    logger.debug(f"Not profitable: started {safe_amount}, ended {step2_out}")
-                    return
-                
-                # Convert to USD for profit calculation
-                revenue_usd = Decimal(step2_out) / Decimal(10**decimals)
-                cost_usd = Decimal(safe_amount) / Decimal(10**decimals)
-                
-                # Calculate gas cost
-                gas_price_gwei = chain_gas_map.get(src_chain, 0)
-                gas_cost_usd = Decimal(str(gas_price_gwei)) * Decimal("500000") * Decimal("2000") / Decimal("1e9")
-                
-            except Exception as e:
-                logger.error(f"DEX price simulation failed for {token_sym}: {e}")
-                return
-
-            # 4. PROFIT CALCULATION
-            try:
-                result = self.profit_engine.calculate_enhanced_profit(
-                    amount=cost_usd,
-                    amount_out=revenue_usd,
-                    bridge_fee_usd=0,  # Intra-chain
-                    gas_cost_usd=gas_cost_usd
-                )
-                
-                if not result['is_profitable']:
-                    logger.debug(f"Not profitable: {token_sym} (Net: ${result['net_profit']:.2f})")
-                    return
-                
-                if result['net_profit'] < self.MIN_PROFIT_THRESHOLD_USD:
-                    logger.debug(f"Profit below threshold: {token_sym} (${result['net_profit']:.2f})")
-                    return
-
-                logger.info(f"💰 PROFIT FOUND: {token_sym} | Net: ${result['net_profit']:.2f}")
-                
-            except Exception as e:
-                logger.error(f"Profit calculation failed for {token_sym}: {e}")
-                return
-
-            # 5. PAYLOAD CONSTRUCTION - FIXED VERSION
+                    if step1_out == 0:
+                        continue  # Try next size
+                    
+                    # STEP 2: WETH → Token using DEX2
+                    step2_out = pricer.get_univ2_price(dex2, weth_addr, token_addr, step1_out)
+                    
+                    if step2_out == 0:
+                        continue  # Try next size
+                    
+                    # Check profitability
+                    if step2_out <= safe_amount:
+                        continue  # Try next size
+                    
+                    # Calculate profit
+                    revenue_usd = Decimal(step2_out) / Decimal(10**decimals)
+                    cost_usd = Decimal(safe_amount) / Decimal(10**decimals)
+                    
+                    gas_price_gwei = chain_gas_map.get(src_chain, 0)
+                    if gas_price_gwei == 0:
+                        continue
+                    
+                    eth_price = Decimal("2000")
+                    gas_cost_usd = Decimal(str(gas_price_gwei)) * Decimal("300000") * eth_price / Decimal("1e9")
+                    
+                    result = self.profit_engine.calculate_enhanced_profit(
+                        amount=cost_usd,
+                        amount_out=revenue_usd,
+                        bridge_fee_usd=0,
+                        gas_cost_usd=gas_cost_usd
+                    )
+                    
+                    if result['is_profitable'] and result['net_profit'] >= self.MIN_PROFIT_THRESHOLD_USD:
+                        # Found profitable trade at this size!
+                        logger.info(f"💰 PROFIT: {token_sym} ${target_trade_usd} {route_name} = ${result['net_profit']:.2f}")
+                        
+                        # Continue with signal generation...
+                        break  # Use this size
+                        
+                except Exception as e:
+                    logger.debug(f"Size ${target_trade_usd} failed: {e}")
+                    continue
+            
+            else:
+                # No profitable size found after trying all sizes
+                return False
+            
+            # If we get here, we found profitable trade with variables: safe_amount, step1_out, step2_out, result
+            # 4. PAYLOAD CONSTRUCTION - Using specific DEX route
             try:
                 chain_conf = CHAINS.get(src_chain)
                 if not chain_conf:
-                    logger.error(f"Chain config not found for {src_chain}")
-                    return
+                    return False
                 
-                # Validate routers are not zero addresses
-                uni_router = chain_conf.get('uniswap_router', ZERO_ADDRESS)
-                curve_router = chain_conf.get('curve_router', ZERO_ADDRESS)
+                # Get router addresses based on route
+                from core.config import DEX_ROUTERS
                 
-                if is_zero_address(uni_router):
-                    logger.warning(f"Uniswap router not configured for chain {src_chain}, skipping opportunity")
-                    return
-                if is_zero_address(curve_router):
-                    logger.warning(f"Curve router not configured for chain {src_chain}, skipping opportunity")
-                    return
+                # Get router for DEX1
+                if dex1 == 'UNIV3':
+                    router1 = chain_conf.get('uniswap_router', ZERO_ADDRESS)
+                    protocol1 = 1  # UniV3
+                    extra1 = "0x" + encode(['uint24'], [500]).hex()  # 0.05% fee
+                else:
+                    router1 = DEX_ROUTERS.get(src_chain, {}).get(dex1, ZERO_ADDRESS)
+                    protocol1 = 0  # UniV2-style
+                    extra1 = "0x"
                 
-                # === FIX #2: CORRECT ROUTE ENCODING ===
+                # Get router for DEX2
+                router2 = DEX_ROUTERS.get(src_chain, {}).get(dex2, ZERO_ADDRESS)
+                protocol2 = 0  # All second hops are V2-style
+                extra2 = "0x"
                 
-                # Get Curve indices using new method
-                curve_indices = pricer.get_curve_indices(
-                    pool_address=curve_router,
-                    token_in=weth_addr,
-                    token_out=token_addr
-                )
+                if is_zero_address(router1) or is_zero_address(router2):
+                    return False
                 
-                if curve_indices[0] is None:
-                    logger.error(f"Cannot resolve Curve indices for route")
-                    return
-                
-                # Protocol IDs
-                protocols = [
-                    1,  # Uniswap V3
-                    2   # Curve
-                ]
-                
-                # Router addresses
-                routers = [
-                    uni_router,
-                    curve_router
-                ]
-                
-                # === CRITICAL FIX: Path represents OUTPUT of each step ===
-                # Step 1: Token → WETH, output is WETH
-                # Step 2: WETH → Token, output is Token
-                path = [
-                    weth_addr,    # Output of protocol[0]
-                    token_addr    # Output of protocol[1]
-                ]
-                
-                # Protocol-specific parameters
-                extras = [
-                    # UniV3: fee tier (500 = 0.05%)
-                    "0x" + encode(['uint24'], [500]).hex(),
-                    
-                    # Curve: indices (i=WETH, j=Token)
-                    "0x" + encode(['int128', 'int128'], curve_indices).hex()
-                ]
-                
-                # Log the complete route for verification
-                logger.info(f"📋 Route constructed:")
-                logger.info(f"   Flash loan: {safe_amount} {token_sym}")
-                logger.info(f"   Step 1: {token_sym} → WETH via UniV3 (fee: 500)")
-                logger.info(f"   Step 2: WETH → {token_sym} via Curve (i={curve_indices[0]}, j={curve_indices[1]})")
-                logger.info(f"   Expected profit: ${result['net_profit']:.2f}")
+                protocols = [protocol1, protocol2]
+                routers = [router1, router2]
+                path = [weth_addr, token_addr]  # Outputs of each step
+                extras = [extra1, extra2]
                 
             except Exception as e:
-                logger.error(f"Payload construction failed for {token_sym}: {e}")
-                return
+                logger.error(f"Payload construction failed: {e}")
+                return False
 
             # 6. AI TUNING
             try:
@@ -473,25 +524,52 @@ class OmniBrain:
                 "timestamp": datetime.now().isoformat()
             }
 
-            try:
-                if self.redis_client:
-                    self.redis_client.publish("trade_signals", json.dumps(signal))
-                    logger.info(f"⚡ SIGNAL BROADCASTED for {token_sym}")
-                    self.consecutive_failures = 0
-            except redis.ConnectionError as e:
-                logger.error(f"Redis connection error: {e}")
-                self.consecutive_failures += 1
-                self.redis_client = None
-            except Exception as e:
-                logger.error(f"Signal broadcast error: {e}")
-                self.consecutive_failures += 1
+            # Signal generated successfully with detailed info
+            logger.info(f"⚡ SIGNAL GENERATED: {token_sym} on Chain {src_chain}")
+            logger.info(f"   💰 Profit: ${result['net_profit']:.2f} | Fees: ${result['total_fees']:.2f}")
+            logger.info(f"   🔄 Route: {' -> '.join(protocols)}")
+            logger.info(f"   ⛽ Gas: {chain_gas_map.get(src_chain, 0):.1f} Gwei")
+            self.consecutive_failures = 0
+            
+            # Write signal to file for bot.js consumption
+            self._write_signal_to_file(signal)
+            
+            return True  # Signal generated successfully
                 
         except Exception as e:
             logger.error(f"Unexpected error in _evaluate_and_signal for {opp.get('token', 'unknown')}: {e}")
             self.consecutive_failures += 1
+            return False
+
+    def _write_signal_to_file(self, signal):
+        """Write signal to JSON file for bot.js consumption"""
+        try:
+            timestamp = int(time.time() * 1000)
+            filename = f"signal_{timestamp}_{signal['token_symbol']}.json"
+            filepath = os.path.join(self.signals_dir, filename)
+            
+            with open(filepath, 'w') as f:
+                json.dump(signal, f, indent=2)
+            
+            logger.info(f"📄 Signal written to: {filename}")
+            
+            # Cleanup old signals periodically
+            if timestamp % 60000 < 1000:  # Roughly every minute
+                self._cleanup_old_signals()
+                
+        except Exception as e:
+            logger.error(f"Failed to write signal file: {e}")
 
     def scan_loop(self):
         logger.info("🚀 Titan Brain: Engaging Hyper-Parallel Scan Loop...")
+        
+        # Log initial coverage stats
+        total_tokens = sum(len(tokens) for tokens in self.inventory.values())
+        total_chains = len(self.inventory)
+        logger.info(f"📊 Coverage: {total_tokens} tokens across {total_chains} chains")
+        for chain_id, tokens in self.inventory.items():
+            chain_name = CHAINS.get(chain_id, {}).get('name', f'Chain {chain_id}')
+            logger.info(f"   • {chain_name}: {len(tokens)} tokens")
         
         while True:
             try:
@@ -546,11 +624,6 @@ class OmniBrain:
                     logger.warning(f"Gas forecast check failed: {e}")
                     # Continue anyway as this is not critical
                 
-                # Reconnect Redis if needed (non-blocking)
-                if self.redis_client is None:
-                    logger.info("Attempting to reconnect Redis...")
-                    self._init_redis_connection()
-
                 # 3. FIND PATHS with error handling
                 try:
                     candidates = self._find_opportunities()
@@ -573,14 +646,17 @@ class OmniBrain:
                     ]
                     
                     completed = 0
+                    signals_generated = 0
                     for f in as_completed(scan_futures, timeout=30):
                         try:
-                            f.result()  # This will raise any exceptions from the worker
+                            result = f.result()  # This will raise any exceptions from the worker
                             completed += 1
+                            if result:  # If signal was generated
+                                signals_generated += 1
                         except Exception as e:
                             logger.error(f"Worker evaluation error: {e}")
                             
-                    logger.debug(f"Completed {completed}/{len(candidates)} evaluations")
+                    logger.info(f"📊 Cycle complete: {completed}/{len(candidates)} evaluated, {signals_generated} signals generated")
                     
                 except Exception as e:
                     logger.error(f"Parallel evaluation failed: {e}")

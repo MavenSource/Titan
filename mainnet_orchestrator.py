@@ -22,6 +22,7 @@ import signal
 import json
 from datetime import datetime
 from threading import Thread, Event
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment
@@ -61,11 +62,11 @@ class MainnetOrchestrator:
     """
     
     def __init__(self):
-        self.mode = os.getenv('EXECUTION_MODE', 'PAPER').upper()
+        self.mode = os.getenv('EXECUTION_MODE', 'PAPER').strip().upper()
         
         # Validate mode immediately (fail fast)
         if self.mode not in [ExecutionMode.PAPER, ExecutionMode.LIVE]:
-            logger.error(f"Invalid EXECUTION_MODE: {self.mode}. Must be PAPER or LIVE")
+            logger.error(f"Invalid EXECUTION_MODE: '{self.mode}'. Must be PAPER or LIVE")
             sys.exit(1)
         
         self.enable_realtime_training = self._parse_bool(os.getenv('ENABLE_REALTIME_TRAINING', 'true'))
@@ -209,6 +210,8 @@ class MainnetOrchestrator:
     def start_data_ingestion(self):
         """Start real-time mainnet data ingestion and arbitrage scanning"""
         logger.info("📡 Starting real-time data ingestion + arbitrage calculations...")
+        logger.info("   Signals will be written to: signals/outgoing/")
+        logger.info("   Make sure execution/bot.js is running to process signals")
         logger.info("   This will run continuously. Press Ctrl+C to stop.")
         logger.info("")
         
@@ -216,7 +219,7 @@ class MainnetOrchestrator:
             # Brain's scan_loop handles:
             # 1. Real-time data ingestion (gas prices, liquidity, etc.)
             # 2. Real arbitrage calculations (profit engine)
-            # 3. Signal broadcasting to Redis for execution
+            # 3. Signal writing to JSON files for bot.js execution
             self.brain.scan_loop()
             
         except KeyboardInterrupt:
@@ -281,7 +284,7 @@ class MainnetOrchestrator:
                 self.start_realtime_training()
             
             # Start main data ingestion and arbitrage scanning
-            # Note: Execution (paper or live) is handled by bot.js reading from Redis
+            # Note: Execution (paper or live) is handled by bot.js reading signal files
             self.start_data_ingestion()
             
         except KeyboardInterrupt:

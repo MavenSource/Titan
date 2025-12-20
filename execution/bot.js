@@ -1,13 +1,15 @@
 require('dotenv').config();
 const { ethers } = require('ethers');
-const { createClient } = require('redis');
+const fs = require('fs');
+const path = require('path');
 const { GasManager } = require('./gas_manager');
 const { BloxRouteManager } = require('./bloxroute_manager');
 const { AggregatorSelector } = require('./aggregator_selector');
 const { OmniSDKEngine } = require('./omniarb_sdk_engine');
 const { LifiExecutionEngine } = require('./lifi_manager');
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const SIGNALS_DIR = path.join(__dirname, '..', 'signals', 'outgoing');
+const PROCESSED_DIR = path.join(__dirname, '..', 'signals', 'processed');
 const EXECUTOR_ADDR = process.env.EXECUTOR_ADDRESS;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 // TITAN_EXECUTION_MODE takes precedence (set by orchestrator), fallback to EXECUTION_MODE (.env)
@@ -33,13 +35,23 @@ const RPC_MAP = {
 
 class TitanBot {
     constructor() {
-        this.redis = createClient({ url: REDIS_URL });
+        this.signalsDir = SIGNALS_DIR;
+        this.processedDir = PROCESSED_DIR;
         this.bloxRoute = new BloxRouteManager();
         this.activeProviders = {};
         this.crossChainEnabled = this._parseBooleanEnv(process.env.ENABLE_CROSS_CHAIN);
         this.executionMode = EXECUTION_MODE;
         this.paperTrades = [];
         this.paperTradeCount = 0;
+        this.processedSignals = new Set();
+        
+        // Ensure directories exist
+        if (!fs.existsSync(this.signalsDir)) {
+            fs.mkdirSync(this.signalsDir, { recursive: true });
+        }
+        if (!fs.existsSync(this.processedDir)) {
+            fs.mkdirSync(this.processedDir, { recursive: true });
+        }
     }
     
     /**
@@ -91,69 +103,68 @@ class TitanBot {
             console.warn('⚠️ Invalid MAX_BASE_FEE_GWEI, using default 500 gwei');
         }
         
-        // Connect to Redis with retry logic
-        let retries = 0;
-        const maxRetries = 5;
+        console.log(`✅ Signal monitoring directory: ${this.signalsDir}`);
+        console.log(`✅ Processed signals directory: ${this.processedDir}`);
+        console.log("🚀 Titan Bot Online - Monitoring for signals...\n");
         
-        while (retries < maxRetries) {
-            try {
-                await this.redis.connect();
-                console.log("✅ Redis connected successfully");
-                break;
-            } catch (e) {
-                retries++;
-                console.error(`⚠️ Redis connection attempt ${retries} failed:`, e.message);
-                
-                if (retries >= maxRetries) {
-                    console.error('❌ CRITICAL: Could not connect to Redis after maximum retries');
-                    console.error('   Please ensure Redis is running on localhost:6379');
-                    process.exit(1);
-                }
-                
-                // Exponential backoff
-                const delay = Math.min(1000 * Math.pow(2, retries), 10000);
-                console.log(`   Retrying in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-        }
-        
-        // Subscribe to trade signals with error handling
-        try {
-            await this.redis.subscribe('trade_signals', async (msg) => {
-                try {
-                    const signal = JSON.parse(msg);
-                    await this.executeTrade(signal);
-                } catch (parseError) {
-                    console.error('❌ Failed to parse trade signal:', parseError.message);
-                }
-            });
-            console.log("✅ Subscribed to 'trade_signals' channel");
-            console.log("🚀 Titan Bot Online - Waiting for signals...\n");
-        } catch (e) {
-            console.error('❌ CRITICAL: Failed to subscribe to Redis channel:', e.message);
-            process.exit(1);
-        }
+        // Start signal file watcher
+        this.startSignalWatcher();
         
         // Set up graceful shutdown
-        process.on('SIGINT', async () => {
+        process.on('SIGINT', () => {
             console.log('\n🛑 Shutting down gracefully...');
-            try {
-                await this.redis.quit();
-                console.log('✅ Redis connection closed');
-            } catch (e) {
-                console.error('Error closing Redis:', e.message);
-            }
             process.exit(0);
         });
+    }
+    
+    /**
+     * Watch for new signal files and process them
+     */
+    startSignalWatcher() {
+        console.log("👀 Starting signal file watcher...");
         
-        // Set up Redis error handler
-        this.redis.on('error', (err) => {
-            console.error('❌ Redis error:', err.message);
-        });
+        // Check for signals every second
+        setInterval(() => {
+            try {
+                const files = fs.readdirSync(this.signalsDir)
+                    .filter(f => f.endsWith('.json') && !this.processedSignals.has(f))
+                    .sort(); // Process oldest first
+                
+                for (const file of files) {
+                    this.processSignalFile(file);
+                }
+            } catch (error) {
+                console.error('Error reading signals directory:', error.message);
+            }
+        }, 1000);
+    }
+    
+    /**
+     * Process a single signal file
+     */
+    async processSignalFile(filename) {
+        const filepath = path.join(this.signalsDir, filename);
         
-        this.redis.on('reconnecting', () => {
-            console.log('⚠️ Redis reconnecting...');
-        });
+        try {
+            // Mark as processing
+            this.processedSignals.add(filename);
+            
+            // Read signal file
+            const signalData = fs.readFileSync(filepath, 'utf8');
+            const signal = JSON.parse(signalData);
+            
+            // Execute trade (paper or live)
+            await this.executeTrade(signal);
+            
+            // Move to processed directory
+            const processedPath = path.join(this.processedDir, filename);
+            fs.renameSync(filepath, processedPath);
+            
+        } catch (error) {
+            console.error(`❌ Error processing signal file ${filename}:`, error.message);
+            // Remove from processed set so we can retry
+            this.processedSignals.delete(filename);
+        }
     }
 
     /**

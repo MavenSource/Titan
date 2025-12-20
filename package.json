@@ -13,7 +13,7 @@
     "deploy:base": "npx hardhat run scripts/deploy.js --network base",
     "test": "npx hardhat test && python3 test_phase1.py",
     "audit": "python3 audit_system.py",
-    "health": "redis-cli ping && node -v && python3 --version",
+    "health": "node -v && python3 --version",
     "clean": "rm -rf artifacts cache typechain typechain-types",
     "setup": "npm ci && pip3 install -r requirements.txt && npx hardhat compile",
     "setup:yarn": "yarn install && pip3 install -r requirements.txt && npx hardhat compile",
@@ -57,8 +57,7 @@
     "axios": "^1.6.7",
     "dotenv": "^16.4.1",
     "ethers": "^6.16.0",
-    "glob": "^10.4.0",
-    "redis": "^4.6.12"
+    "glob": "^10.4.0"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",

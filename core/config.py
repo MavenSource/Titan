@@ -160,6 +160,24 @@ DEX_ROUTERS = {
     42161: {  # Arbitrum
         "CAMELOT": "0xc873fEcbd354f5A56E00E710B90EF4201db2448d",  # Camelot Router
         "SUSHI": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",  # SushiSwap Router on Arbitrum
+    },
+    10: {  # Optimism
+        "SUSHI": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",  # SushiSwap on Optimism
+        "VELODROME": "0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858",  # Velodrome V2 Router
+    },
+    8453: {  # Base
+        "SUSHI": "0x6BDED42c6DA8FBf0d2bA55B2fa120C5e0c8D7891",  # SushiSwap on Base
+        "BASESWAP": "0x327Df1E6de05895d2ab08513aaDD9313Fe505d86",  # BaseSwap Router
+    },
+    56: {  # BSC
+        "PANCAKE": "0x10ED43C718714eb63d5aA57B78B54704E256024E",  # PancakeSwap V2 Router
+        "SUSHI": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",  # SushiSwap on BSC
+        "APE": "0xcF0feBd3f17CEf5b47b0cD257aCf6025c5BFf3b7",  # ApeSwap on BSC
+    },
+    43114: {  # Avalanche
+        "TRADERJOE": "0x60aE616a2155Ee3d9A68541Ba4544862310933d4",  # TraderJoe Router
+        "SUSHI": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",  # SushiSwap on Avalanche
+        "PANGOLIN": "0xE54Ca86531e17Ef3616d22Ca28b0D458b6C89106",  # Pangolin Router
     }
 }
 
