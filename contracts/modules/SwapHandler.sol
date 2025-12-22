@@ -55,7 +55,7 @@ abstract contract SwapHandler {
     // Curve pool constraints
     uint8 internal constant MAX_CURVE_INDICES = 8;
     
-    // Configurable deadline (can be overridden by child contracts)
+    // Configurable deadline (seconds) - can be updated by child contracts via setSwapDeadline
     uint256 internal _swapDeadline = 180; // 3 minutes default
 
     error UnsupportedProtocol(uint8 protocol);

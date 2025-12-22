@@ -138,7 +138,7 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
     uint256 public swapDeadline = 180; // Default 3 minutes
     
     // Loss threshold constant (10% max loss before revert - more reasonable for arbitrage)
-    uint256 private constant MAX_LOSS_BPS = 1000; // 10% in basis points
+    uint256 private constant MAX_ALLOWED_LOSS_BPS = 1000; // 10% in basis points
     
     /* ========== REGISTRY MAPPINGS ========== */
     
@@ -464,7 +464,7 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
         
         // Basic sanity check: allow at most 10% loss (actual profit validated by flash loan repayment)
         require(
-            currentAmount * 10_000 >= inputAmount * (10_000 - MAX_LOSS_BPS),
+            currentAmount * 10_000 >= inputAmount * (10_000 - MAX_ALLOWED_LOSS_BPS),
             "Excessive loss detected"
         );
         
