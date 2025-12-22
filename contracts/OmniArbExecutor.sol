@@ -115,20 +115,29 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
         uint256 loanAmount,
         uint256 profit
     );
-    
-    event RegistryUpdated(
-        string registryType,
-        uint256 indexed key1,
-        uint256 indexed key2,
-        address value
+
+    event ExecutedDetailed(
+        FlashSource indexed source,
+        address indexed asset,
+        uint256 amountBorrowed,
+        uint256 feeOrPremium,
+        uint256 repayAmount,
+        uint256 startBalance,
+        uint256 endBalance,
+        int256 pnl,
+        uint256 minProfit,
+        bytes32 routeHash
     );
-    
-    /* ========== CONSTRUCTOR ========== */
-    
-    constructor(
-        address _balancer,
-        address _aave
-    ) Ownable(msg.sender) {
+
+    event DexRouterSet(uint256 indexed chainId, uint8 indexed dexId, address router);
+    event TokenSet(uint256 indexed chainId, uint8 indexed tokenId, uint8 indexed tokenType, address token, bool enabled);
+
+    // ============================================
+    // CONSTRUCTOR
+    // ============================================
+
+    constructor(address _balancer, address _aave) Ownable(msg.sender) {
+        require(_balancer != address(0) && _aave != address(0), "Invalid addresses");
         BALANCER_VAULT = IVaultV3(_balancer);
         AAVE_POOL = IAavePool(_aave);
         
@@ -170,27 +179,21 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
     /**
      * @notice Register a token address for a specific chain
      */
-    function registerToken(
-        Chain _chain,
-        Token _token,
-        address _address
-    ) external onlyOwner {
-        require(_address != address(0), "Invalid address");
-        tokenRegistry[_chain][_token] = _address;
-        emit RegistryUpdated("token", uint256(_chain), uint256(_token), _address);
+    function setDexRouter(uint256 chainId, uint8 dexId, address router) external onlyOwner {
+        require(router != address(0), "Invalid router");
+        require(router.code.length > 0, "Router not contract");
+        dexRouter[chainId][dexId] = router;
+        emit DexRouterSet(chainId, dexId, router);
     }
     
     /**
      * @notice Register a DEX router address for a specific chain
      */
-    function registerDEX(
-        Chain _chain,
-        DEX _dex,
-        address _router
-    ) external onlyOwner {
-        require(_router != address(0), "Invalid router");
-        dexRegistry[_chain][_dex] = _router;
-        emit RegistryUpdated("dex", uint256(_chain), uint256(_dex), _router);
+    function setToken(uint256 chainId, uint8 tokenId, uint8 tokenType, address token) external onlyOwner {
+        require(token != address(0), "Invalid token");
+        require(token.code.length > 0, "Token not contract");
+        tokenRegistry[chainId][tokenId][tokenType] = token;
+        emit TokenSet(chainId, tokenId, tokenType, token, true);
     }
     
     /**
@@ -201,11 +204,12 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
         Token[] calldata _tokens,
         address[] calldata _addresses
     ) external onlyOwner {
-        require(_tokens.length == _addresses.length, "Length mismatch");
-        for (uint256 i = 0; i < _tokens.length; i++) {
-            require(_addresses[i] != address(0), "Invalid address");
-            tokenRegistry[_chain][_tokens[i]] = _addresses[i];
-            emit RegistryUpdated("token", uint256(_chain), uint256(_tokens[i]), _addresses[i]);
+        require(chainIds.length == dexIds.length && dexIds.length == routers.length, "Length mismatch");
+        for (uint i = 0; i < chainIds.length; i++) {
+            require(routers[i] != address(0), "Invalid router");
+            require(routers[i].code.length > 0, "Router not contract");
+            dexRouter[chainIds[i]][dexIds[i]] = routers[i];
+            emit DexRouterSet(chainIds[i], dexIds[i], routers[i]);
         }
     }
     
@@ -217,11 +221,17 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
         DEX[] calldata _dexs,
         address[] calldata _routers
     ) external onlyOwner {
-        require(_dexs.length == _routers.length, "Length mismatch");
-        for (uint256 i = 0; i < _dexs.length; i++) {
-            require(_routers[i] != address(0), "Invalid router");
-            dexRegistry[_chain][_dexs[i]] = _routers[i];
-            emit RegistryUpdated("dex", uint256(_chain), uint256(_dexs[i]), _routers[i]);
+        require(
+            chainIds.length == tokenIds.length && 
+            tokenIds.length == tokenTypes.length && 
+            tokenTypes.length == tokens.length,
+            "Length mismatch"
+        );
+        for (uint i = 0; i < chainIds.length; i++) {
+            require(tokens[i] != address(0), "Invalid token");
+            require(tokens[i].code.length > 0, "Token not contract");
+            tokenRegistry[chainIds[i]][tokenIds[i]][tokenTypes[i]] = tokens[i];
+            emit TokenSet(chainIds[i], tokenIds[i], tokenTypes[i], tokens[i], true);
         }
     }
     
@@ -259,21 +269,26 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
      * @param flashSource Flash loan source (AaveV3=0, BalancerV3=1)
      * @param loanToken Token to borrow
      * @param loanAmount Amount to borrow
-     * @param routeData Encoded route (supports both enum and raw address modes)
+     * @param minProfitToken Minimum profit required in loanToken units
+     * @param balancerFeeHint Balancer fee hint (typically 0, but explicit)
+     * @param routeData Encoded route (RAW_ADDRESSES or REGISTRY_ENUMS)
      */
     function execute(
         FlashSource flashSource,
         address loanToken,
         uint256 loanAmount,
+        uint256 minProfitToken,
+        uint256 balancerFeeHint,
         bytes calldata routeData
     ) external onlyOwner {
         if (flashSource == FlashSource.AaveV3) {
-            // Aave V3: Standard flashloan
-            AAVE_POOL.flashLoanSimple(address(this), loanToken, loanAmount, routeData, 0);
+            // Aave V3: Standard flashloan - encode minProfit into routeData wrapper
+            bytes memory callbackData = abi.encode(minProfitToken, routeData);
+            AAVE_POOL.flashLoanSimple(address(this), loanToken, loanAmount, callbackData, 0);
         } else if (flashSource == FlashSource.BalancerV3) {
             // Balancer V3: Unlock pattern
-            bytes memory callbackData = abi.encode(loanToken, loanAmount, routeData);
-            BALANCER_VAULT.unlock(abi.encodeWithSelector(this.onBalancerUnlock.selector, callbackData));
+            bytes memory callbackData = abi.encode(loanToken, loanAmount, minProfitToken, balancerFeeHint, routeData);
+            BALANCER_VAULT.unlock(abi.encodeCall(this.onBalancerUnlock, (callbackData)));
         } else {
             revert("Invalid flash source");
         }
@@ -284,31 +299,49 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
     /**
      * @notice Balancer V3 unlock callback
      */
-    function onBalancerUnlock(bytes calldata data) external returns (bytes memory) {
-        require(msg.sender == address(BALANCER_VAULT), "Unauthorized");
-        
-        (address token, uint256 amount, bytes memory routeData) = abi.decode(
-            data,
-            (address, uint256, bytes)
+    function onBalancerUnlock(bytes calldata callbackData) external returns (bytes memory) {
+        require(msg.sender == address(BALANCER_VAULT), "B3: bad caller");
+
+        (address loanToken, uint256 loanAmount, uint256 minProfitToken, uint256 feeHint, bytes memory routeData) =
+            abi.decode(callbackData, (address, uint256, uint256, uint256, bytes));
+
+        // Borrow inside unlocked context
+        BALANCER_VAULT.sendTo(IERC20(loanToken), address(this), loanAmount);
+
+        uint256 startBal = IERC20(loanToken).balanceOf(address(this));
+
+        // Execute route
+        uint256 finalAmount = _runRoute(loanToken, loanAmount, routeData);
+
+        uint256 endBal = IERC20(loanToken).balanceOf(address(this));
+
+        // Profit calculation: endBal - startBal - feeHint
+        int256 pnl = int256(endBal) - int256(startBal) - int256(feeHint);
+        require(pnl >= int256(minProfitToken), "MIN_PROFIT");
+
+        // Repay debt: loanAmount + feeHint
+        uint256 repayAmount = loanAmount + feeHint;
+        require(endBal >= repayAmount, "B3: insufficient repay");
+
+        // Transfer to Vault, then settle (NOT approve)
+        IERC20(loanToken).safeTransfer(address(BALANCER_VAULT), repayAmount);
+        BALANCER_VAULT.settle(IERC20(loanToken), repayAmount);
+
+        emit ExecutedDetailed(
+            FlashSource.BalancerV3,
+            loanToken,
+            loanAmount,
+            feeHint,
+            repayAmount,
+            startBal,
+            endBal,
+            pnl,
+            minProfitToken,
+            keccak256(routeData)
         );
 
-        // A. Take debt (V3 specific)
-        BALANCER_VAULT.sendTo(IERC20(token), address(this), amount);
-
-        // B. Execute arbitrage route
-        uint256 finalAmount = _runRoute(token, amount, routeData);
-
-        // Validate profitability before repayment
-        require(finalAmount >= amount, "Insufficient return");
-
-        // C. Repay debt
-        IERC20(token).safeTransfer(address(BALANCER_VAULT), amount);
-        BALANCER_VAULT.settle(IERC20(token), amount);
-        
-        // Emit profit event
-        if (finalAmount > amount) {
-            emit ArbitrageExecuted(1, token, amount, finalAmount - amount);
-        }
+        // RouteExecuted expects uint256 profit, only emit if profitable
+        emit RouteExecuted(loanToken, loanAmount, finalAmount, pnl >= 0 ? uint256(pnl) : 0);
         
         return "";
     }
@@ -320,23 +353,48 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
         address asset,
         uint256 amount,
         uint256 premium,
-        address,
-        bytes calldata routeData
-    ) external returns (bool) {
-        require(msg.sender == address(AAVE_POOL), "Unauthorized");
+        address initiator,
+        bytes calldata params
+    ) external override returns (bool) {
+        require(msg.sender == address(AAVE_POOL), "AAVE: bad caller");
+        require(initiator == address(this), "AAVE: bad initiator");
+
+        // Decode minProfit and routeData
+        (uint256 minProfitToken, bytes memory routeData) = abi.decode(params, (uint256, bytes));
+        
+        uint256 startBal = IERC20(asset).balanceOf(address(this));
         
         // Execute arbitrage route
         uint256 finalAmount = _runRoute(asset, amount, routeData);
 
-        // Approve repayment (loan + premium)
-        uint256 owed = amount + premium;
-        
-        // Validate profitability before repayment
-        require(finalAmount >= owed, "Insufficient return");
-        
-        IERC20(asset).forceApprove(address(AAVE_POOL), owed);
+        uint256 endBal = IERC20(asset).balanceOf(address(this));
 
-        emit RouteExecuted(asset, amount, finalAmount, finalAmount - owed);
+        uint256 owed = amount + premium;
+
+        // Profit calculation: endBal - startBal - premium
+        // Note: startBal already includes borrowed amount
+        int256 pnl = int256(endBal) - int256(startBal) - int256(premium);
+        require(pnl >= int256(minProfitToken), "MIN_PROFIT");
+        
+        require(endBal >= owed, "AAVE: insufficient return");
+        
+        IERC20(asset).safeIncreaseAllowance(address(AAVE_POOL), owed);
+
+        emit ExecutedDetailed(
+            FlashSource.AaveV3,
+            asset,
+            amount,
+            premium,
+            owed,
+            startBal,
+            endBal,
+            pnl,
+            minProfitToken,
+            keccak256(routeData)
+        );
+
+        // RouteExecuted expects uint256 profit, only emit if profitable
+        emit RouteExecuted(asset, amount, finalAmount, pnl >= 0 ? uint256(pnl) : 0);
         
         return true;
     }
@@ -358,7 +416,7 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
     ) internal returns (uint256 finalAmount) {
         // Decode route: Arrays of [Protocol, Router, TokenOut, ExtraData]
         (
-            RouteEncoding enc,
+            ,  // RouteEncoding enc - not used after decode
             uint8[] memory protocols,
             address[] memory routers,
             address[] memory path,
@@ -396,7 +454,7 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
         }
         
         (
-            RouteEncoding enc,
+            ,  // RouteEncoding enc - not used after decode
             uint8[] memory protocols,
             uint8[] memory dexIds,
             uint8[] memory tokenOutIds,
