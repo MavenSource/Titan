@@ -84,7 +84,7 @@ let passedUnknown = 0;
 let failedUnknown = 0;
 const UNKNOWN_CHAIN = 999999;
 try {
-    const engine = new OmniSDKEngine(UNKNOWN_CHAIN, "https://dummy.rpc.url");
+    new OmniSDKEngine(UNKNOWN_CHAIN, "https://dummy.rpc.url");
     console.log(`  ✗ Unknown chain ${UNKNOWN_CHAIN}: Should have thrown error but didn't`);
     failedUnknown++;
 } catch (error) {
