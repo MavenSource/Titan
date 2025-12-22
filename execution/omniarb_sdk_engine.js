@@ -68,7 +68,7 @@ class OmniSDKEngine {
             8453: "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",   // Base
             56: "0x78D78E420Da98ad378D7799bE8f4AF69033EB077",    // BNB Smart Chain
             43114: "0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F", // Avalanche C-Chain
-            250: "0x2E9f8922DFf498311dae66BC52ac695B36B8ec15",    // Fantom (SpookySwap)
+            250: "0x2E9f8922DFf498311dae66BC52ac695B36B8ec15",    // Fantom (Note: May be SpookySwap fork)
             42220: "0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8",   // Celo
             324: "0x3d146FcE6c1006857750cBe8aF44f76a28041CCc",    // zkSync Era
             81457: "0x6Cdcd65e03c1CEc3730AeeCd45bc140D57A25C77"   // Blast
