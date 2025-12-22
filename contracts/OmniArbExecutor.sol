@@ -3,40 +3,23 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-
-// === INTERFACES ===
-interface IVaultV3 {
-    function unlock(bytes calldata data) external returns (bytes memory);
-    function settle(IERC20 token, uint256 amount) external returns (uint256);
-    function sendTo(IERC20 token, address to, uint256 amount) external;
-}
-
-interface IAavePool {
-    function flashLoanSimple(address receiver, address asset, uint256 amount, bytes calldata params, uint16 referralCode) external;
-}
-
-interface IUniswapV3Router {
-    struct ExactInputSingleParams {
-        address tokenIn; address tokenOut; uint24 fee; address recipient; uint256 deadline; uint256 amountIn; uint256 amountOutMinimum; uint160 sqrtPriceLimitX96;
-    }
-    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
-}
-
-interface ICurve {
-    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy) external returns (uint256);
-}
+import "./interfaces/IAaveV3.sol";
+import "./interfaces/IB3.sol";
+import "./interfaces/IUniV3.sol";
+import "./interfaces/ICurve.sol";
+import "./modules/SwapHandler.sol";
 
 // === MAIN CONTRACT ===
 contract OmniArbExecutor is Ownable {
     IVaultV3 public immutable BALANCER_VAULT;
-    IAavePool public immutable AAVE_POOL;
+    IAavePoolV3 public immutable AAVE_POOL;
     
     // Configurable deadline for time-sensitive swaps (in seconds)
     uint256 public swapDeadline = 180; // Default 3 minutes
 
     constructor(address _balancer, address _aave) Ownable(msg.sender) {
         BALANCER_VAULT = IVaultV3(_balancer);
-        AAVE_POOL = IAavePool(_aave);
+        AAVE_POOL = IAavePoolV3(_aave);
     }
     
     // Allow owner to adjust deadline based on trading strategy

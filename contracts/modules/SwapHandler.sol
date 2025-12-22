@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interfaces/IDEX.sol";
+import "../interfaces/IUniV2.sol";
+import "../interfaces/IUniV3.sol";
+import "../interfaces/ICurve.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 abstract contract SwapHandler {
@@ -47,7 +49,7 @@ abstract contract SwapHandler {
         } else if (protocol == PROTOCOL_CURVE) {
             // extraData needs to contain [i, j] indices for Curve
             (int128 i, int128 j) = abi.decode(extraData, (int128, int128));
-            return ICurvePool(router).exchange(i, j, amountIn, 0);
+            return ICurve(router).exchange(i, j, amountIn, 0);
         }
         
         return 0;
