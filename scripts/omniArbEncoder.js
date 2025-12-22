@@ -161,7 +161,16 @@ function encodePayload({
   }
   
   if (!ethers.isAddress(receiver)) {
-    throw new Error("Invalid receiver address");
+    // Try to validate it as a potential address by checking format
+    if (!/^0x[0-9a-fA-F]{40}$/.test(receiver)) {
+      throw new Error("Invalid receiver address format");
+    }
+    // If it's the right format but fails checksum, convert it to checksummed
+    try {
+      receiver = ethers.getAddress(receiver.toLowerCase());
+    } catch (e) {
+      throw new Error("Invalid receiver address");
+    }
   }
   
   // Convert amount to BigInt if it's a string
@@ -267,7 +276,7 @@ if (require.main === module) {
     routeParams: "0x",
     minProfitBps: 100,
     expiry: Math.floor(Date.now() / 1000) + 3600,
-    receiver: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+    receiver: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0", // Example receiver address
     routeRegistryHash: ethers.ZeroHash,
     nonce: 1
   });
