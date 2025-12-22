@@ -283,8 +283,8 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
         bytes memory routeData
     ) internal returns (uint256 finalAmount) {
         
-        // Decode encoding type
-        RouteEncoding encoding = RouteEncoding(uint8(bytes1(routeData[0:1])));
+        // Decode encoding type using ABI decoding (first tuple element)
+        RouteEncoding encoding = abi.decode(routeData, (RouteEncoding));
 
         if (encoding == RouteEncoding.RAW_ADDRESSES) {
             return _runRouteRaw(inputToken, inputAmount, routeData);
