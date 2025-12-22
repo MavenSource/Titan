@@ -7,8 +7,8 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: read  # Required for checking out code
-  actions: read   # Required for workflow artifacts
+  contents: read
+  actions: read
   
 jobs:
   build-and-test:
@@ -22,37 +22,46 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Node.js dependencies
+      - name: Install on-chain dependencies
+        working-directory: onchain
         run: npm ci
 
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
-
       - name: Compile smart contracts
+        working-directory: onchain
         run: npx hardhat compile
 
-      - name: Check code formatting
+      - name: Copy ABIs to shared directory
         run: |
-          echo "Running code checks..."
-          # Add linting here if configured
-        continue-on-error: true
+          mkdir -p shared/abi
+          cp -r onchain/artifacts/contracts/*.sol/*.json shared/abi/ || true
+          echo "✅ ABIs copied to shared directory"
+
+      - name: Install off-chain Python dependencies
+        working-directory: offchain/brain
+        run: pip install -r requirements.txt
+
+      - name: Install off-chain executor dependencies
+        working-directory: offchain/executor
+        run: npm ci
 
       - name: Run system audit
+        working-directory: offchain/brain
         run: python audit_system.py
         continue-on-error: true
 
       - name: Verify build artifacts
         run: |
           echo "Verifying build..."
-          test -d artifacts || exit 1
-          test -f artifacts/contracts/OmniArbExecutor.sol/OmniArbExecutor.json || exit 1
+          test -d onchain/artifacts || exit 1
+          test -f onchain/artifacts/contracts/OmniArbExecutor.sol/OmniArbExecutor.json || exit 1
+          test -d shared/signals/outgoing || exit 1
+          test -d shared/signals/processed || exit 1
           echo "✅ Build verification passed"
 
       - name: Upload artifacts
@@ -60,6 +69,7 @@ jobs:
         with:
           name: build-artifacts
           path: |
-            artifacts/
-            cache/
+            onchain/artifacts/
+            onchain/cache/
+            shared/abi/
           retention-days: 7

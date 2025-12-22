@@ -1,0 +1,15 @@
+{
+  "signals": {
+    "outgoing": "shared/signals/outgoing",
+    "processed": "shared/signals/processed"
+  },
+  "abi": "shared/abi",
+  "onchain": {
+    "artifacts": "onchain/artifacts",
+    "contracts": "onchain/contracts"
+  },
+  "offchain": {
+    "brain": "offchain/brain",
+    "executor": "offchain/executor"
+  }
+}

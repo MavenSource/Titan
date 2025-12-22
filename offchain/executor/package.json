@@ -1,0 +1,25 @@
+{
+  "name": "titan-executor",
+  "version": "4.2.0",
+  "description": "Titan Arbitrage Execution Engine",
+  "main": "execution/bot.js",
+  "scripts": {
+    "start": "node execution/bot.js"
+  },
+  "keywords": [
+    "defi",
+    "arbitrage",
+    "execution"
+  ],
+  "author": "MavenSource",
+  "license": "MIT",
+  "dependencies": {
+    "@flashbots/ethers-provider-bundle": "^1.0.0",
+    "@lifi/sdk": "^3.0.0",
+    "@solana/web3.js": "^1.95.0",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.1",
+    "ethers": "^6.16.0",
+    "glob": "^10.4.0"
+  }
+}

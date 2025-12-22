@@ -1,27 +1,37 @@
 import os
 import sys
-from colorama import Fore, Style, init
+from pathlib import Path
 
-init(autoreset=True)
+# Ensure we can import from the current directory structure
+sys.path.insert(0, str(Path(__file__).parent))
 
+try:
+    from colorama import Fore, Style, init
+    init(autoreset=True)
+except ImportError:
+    # Fallback if colorama not installed
+    class Fore:
+        CYAN = GREEN = RED = YELLOW = ""
+    class Style:
+        RESET_ALL = ""
+
+# Paths relative to offchain/brain/
 REQUIRED_FILES = [
-    ".env",
-    "package.json",
+    "../.env",  # In offchain/ (parent directory)
     "requirements.txt",
     "core/config.py",
     "core/enum_matrix.py",
     "core/token_discovery.py",
-    "core/token_equivalence.py",
     "ml/brain.py",
     "ml/bridge_oracle.py",
     "ml/cortex/feature_store.py",
     "ml/cortex/forecaster.py",
     "ml/cortex/rl_optimizer.py",
-    "execution/bot.js",
-    "execution/lifi_discovery.js",
-    "execution/lifi_manager.js",
-    "execution/gas_manager.js", # The new file
-    "contracts/OmniArbExecutor.sol"
+    "../executor/execution/bot.js",
+    "../executor/execution/lifi_discovery.js",
+    "../executor/execution/lifi_manager.js",
+    "../executor/execution/gas_manager.js",
+    "../../onchain/contracts/OmniArbExecutor.sol"
 ]
 
 def audit():
@@ -43,10 +53,14 @@ def audit():
     # 2. Config Logic Check
     print(f"\n{Fore.YELLOW}[2] Checking Logic Imports...{Style.RESET_ALL}")
     try:
-        from core.config import CHAINS, DYNAMIC_REGISTRY
+        from core.config import CHAINS
         print(f"   ✅ Config Loaded. Chains Configured: {len(CHAINS)}")
-        if DYNAMIC_REGISTRY is None:
-             print(f"   ⚠️  Dynamic Registry not built yet (Run lifi_discovery.js first)")
+        # Check if SIGNALS_OUTGOING path exists
+        from core.config import SIGNALS_OUTGOING
+        if SIGNALS_OUTGOING.exists():
+            print(f"   ✅ Signals directory exists: {SIGNALS_OUTGOING}")
+        else:
+            print(f"   ⚠️  Signals directory will be created on first run")
     except Exception as e:
         print(f"   ❌ Config Error: {e}")
         missing.append("Config Logic")
