@@ -163,7 +163,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
         address,
         bytes calldata params
     ) external override returns (bool) {
-        require(msg.sender == address(AAVE_POOL), "Aave: auth");
+        require(msg.sender == address(AAVE_POOL), "Unauthorized: caller is not Aave pool");
 
         uint256 startBal = IERC20(asset).balanceOf(address(this));
         _runRoute(asset, amount, params);
