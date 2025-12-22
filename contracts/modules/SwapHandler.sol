@@ -90,7 +90,7 @@ abstract contract SwapHandler {
         path[0] = tokenIn;
         path[1] = tokenOut;
         
-        uint[] memory amounts = IUniswapV2Router(router).swapExactTokensForTokens(
+        uint256[] memory amounts = IUniswapV2Router(router).swapExactTokensForTokens(
             amountIn,
             0, // amountOutMin (validated off-chain)
             path,

@@ -318,7 +318,7 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
             // Balancer V3: "Unlock" the vault
             bytes memory callbackData = abi.encode(loanToken, loanAmount, routeData);
             BALANCER_VAULT.unlock(
-                abi.encodeWithSelector(this.onBalancerUnlock.selector, callbackData)
+                abi.encodeCall(this.onBalancerUnlock, (callbackData))
             );
         } else if (flashSource == 2) {
             // Aave V3: Standard flash loan
