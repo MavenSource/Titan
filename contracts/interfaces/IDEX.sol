@@ -4,12 +4,12 @@ pragma solidity ^0.8.20;
 // Uniswap V2 Router Interface
 interface IUniswapV2Router {
     function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
+        uint256 amountIn,
+        uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint deadline
-    ) external returns (uint[] memory amounts);
+        uint256 deadline
+    ) external returns (uint256[] memory amounts);
 }
 
 // Uniswap V3 Router Interface
@@ -40,6 +40,16 @@ interface IUniswapV3Router {
 
 // Curve Pool Interface
 interface ICurvePool {
+    function exchange(
+        int128 i,
+        int128 j,
+        uint256 dx,
+        uint256 min_dy
+    ) external returns (uint256);
+}
+
+// Alias for compatibility
+interface ICurve {
     function exchange(
         int128 i,
         int128 j,
