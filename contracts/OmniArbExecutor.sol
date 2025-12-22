@@ -7,7 +7,6 @@ import "./interfaces/IAaveV3.sol";
 import "./interfaces/IB3.sol";
 import "./interfaces/IUniV3.sol";
 import "./interfaces/ICurve.sol";
-import "./modules/SwapHandler.sol";
 
 // === MAIN CONTRACT ===
 contract OmniArbExecutor is Ownable {
