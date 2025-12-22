@@ -119,11 +119,20 @@ echo ""
 
 # Step 4: Compile Smart Contracts
 echo -e "${BLUE}[4/9] Compiling Smart Contracts...${NC}"
+cd onchain
 npx hardhat compile
 if [ $? -eq 0 ]; then
     print_status "Smart contracts compiled successfully"
+    cd ..
+    
+    # Copy ABIs to shared directory
+    echo "Copying ABIs to shared directory..."
+    mkdir -p shared/abi
+    cp -r onchain/artifacts/contracts/*.sol/*.json shared/abi/ 2>/dev/null || true
+    print_status "ABIs copied to shared/abi/"
 else
     print_error "Smart contract compilation failed"
+    cd ..
     exit 1
 fi
 echo ""
@@ -199,8 +208,8 @@ echo "   - Add RPC provider API keys (Infura/Alchemy)"
 echo "   - Add LIFI_API_KEY for cross-chain operations"
 echo ""
 echo "2. Deploy the smart contract:"
-echo -e "   ${BLUE}npx hardhat run scripts/deploy.js --network polygon${NC}"
-echo "   - Copy the deployed address to .env as EXECUTOR_ADDRESS_POLYGON"
+echo -e "   ${BLUE}cd onchain && npx hardhat run scripts/deploy.js --network polygon${NC}"
+echo "   - Copy the deployed address to offchain/.env as EXECUTOR_ADDRESS_POLYGON"
 echo ""
 echo "3. Start Redis (if not running):"
 echo -e "   ${BLUE}redis-server${NC}"
@@ -211,8 +220,8 @@ echo -e "     ${BLUE}./start.sh${NC}"
 echo ""
 echo "   Option B - Manual (3 separate terminals):"
 echo -e "     Terminal 1: ${BLUE}redis-server${NC}"
-echo -e "     Terminal 2: ${BLUE}python3 ml/brain.py${NC}"
-echo -e "     Terminal 3: ${BLUE}node execution/bot.js${NC}"
+echo -e "     Terminal 2: ${BLUE}cd offchain/brain && python3 ml/brain.py${NC}"
+echo -e "     Terminal 3: ${BLUE}cd offchain/executor && node execution/bot.js${NC}"
 echo ""
 echo "For detailed instructions, see QUICKSTART.md"
 echo ""

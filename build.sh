@@ -55,16 +55,24 @@ echo ""
 
 # Step 4: Compile smart contracts
 echo -e "${BLUE}[4/6] Compiling Smart Contracts...${NC}"
+cd onchain
 npx hardhat compile
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}[✓]${NC} Smart contracts compiled successfully"
+    cd ..
+    
+    # Copy ABIs to shared directory
+    echo "Copying ABIs to shared directory..."
+    mkdir -p shared/abi
+    cp -r onchain/artifacts/contracts/*.sol/*.json shared/abi/ 2>/dev/null || true
+    echo -e "${GREEN}[✓]${NC} ABIs copied to shared/abi/"
     
     # Verify compilation
-    if [ -f "artifacts/contracts/OmniArbExecutor.sol/OmniArbExecutor.json" ]; then
+    if [ -f "onchain/artifacts/contracts/OmniArbExecutor.sol/OmniArbExecutor.json" ]; then
         echo -e "${GREEN}[✓]${NC} OmniArbExecutor.json generated"
         
         # Get contract size
-        SIZE=$(stat -f%z "artifacts/contracts/OmniArbExecutor.sol/OmniArbExecutor.json" 2>/dev/null || stat -c%s "artifacts/contracts/OmniArbExecutor.sol/OmniArbExecutor.json" 2>/dev/null)
+        SIZE=$(stat -f%z "onchain/artifacts/contracts/OmniArbExecutor.sol/OmniArbExecutor.json" 2>/dev/null || stat -c%s "onchain/artifacts/contracts/OmniArbExecutor.sol/OmniArbExecutor.json" 2>/dev/null)
         echo "       Contract artifact size: $(numfmt --to=iec-i --suffix=B $SIZE 2>/dev/null || echo "${SIZE} bytes")"
     else
         echo -e "${RED}[✗]${NC} Contract compilation verification failed"
@@ -72,6 +80,7 @@ if [ $? -eq 0 ]; then
     fi
 else
     echo -e "${RED}[✗]${NC} Smart contract compilation failed"
+    cd ..
     exit 1
 fi
 echo ""
