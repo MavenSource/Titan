@@ -159,10 +159,10 @@ tokenOut = tokenRegistry[chainId][tokenId][tokenType]
 - **`protocols[i]`**: Same protocol IDs as RAW_ADDRESSES
 
 - **`dexIds[i]`**: `uint8(Dex.<NAME>)`
-  - Example: `Dex.QUICKSWAP = 0`, `Dex.UNIV3 = 1`, `Dex.CURVE = 2`
+  - Example: `Dex.UniV2 = 0`, `Dex.UniV3 = 1`, `Dex.Curve = 2`
 
 - **`tokenOutIds[i]`**: `uint8(TokenId.<NAME>)`
-  - Example: `TokenId.USDC = 0`, `TokenId.USDT = 1`, `TokenId.WETH = 3`
+  - Example: `TokenId.WNATIVE = 0`, `TokenId.USDC = 1`, `TokenId.USDT = 2`, `TokenId.WETH = 4`
 
 - **`tokenOutTypes[i]`**: `uint8(TokenType.<NAME>)`
   - `0` = `CANONICAL` (native on that chain)
@@ -181,17 +181,17 @@ protocols.length == dexIds.length == tokenOutIds.length == tokenOutTypes.length 
 
 ### Ethers.js Example (same route but enum-resolved)
 
-Assume enums:
-- `Dex.QUICKSWAP = 0`, `Dex.UNIV3 = 1`, `Dex.CURVE = 2`
-- `TokenId.WETH = 3`, `TokenId.USDT = 1`, `TokenId.USDC = 0`
+Assume enums (from canonical specification):
+- `Dex.UniV2 = 0`, `Dex.UniV3 = 1`, `Dex.Curve = 2`
+- `TokenId.WNATIVE = 0`, `TokenId.USDC = 1`, `TokenId.USDT = 2`, `TokenId.WETH = 4`
 - `TokenType.CANONICAL = 0`
 
 ```javascript
 const REG = 1;
 
 const protocols = [1, 2, 3];
-const dexIds = [0, 1, 2];          // QUICKSWAP, UNIV3, CURVE
-const tokenOutIds = [3, 1, 0];     // WETH, USDT, USDC
+const dexIds = [0, 1, 2];          // UniV2, UniV3, Curve
+const tokenOutIds = [4, 2, 1];     // WETH, USDT, USDC
 const tokenOutTypes = [0, 0, 0];   // CANONICAL for all
 
 const extra = [
@@ -323,7 +323,7 @@ const routeData = abi.encode(
 
 ```javascript
 await executor.execute(
-  1,              // flashSource (1=Balancer)
+  0,              // flashSource (0=AaveV3, 1=BalancerV3)
   USDT_ADDRESS,   // loanToken
   ethers.parseUnits("10000", 6),  // loanAmount (10k USDT)
   routeData
@@ -349,14 +349,14 @@ Before using REGISTRY_ENUMS, owner must register protocol entry contracts (route
 
 ```solidity
 // Register DEX routers / pools (protocol entry contracts)
-executor.setDexRouter(137, 0, QUICKSWAP_ROUTER);  // Polygon, QUICKSWAP router (UniV2)
-executor.setDexRouter(137, 1, UNIV3_ROUTER);      // Polygon, UNIV3 router
-executor.setDexRouter(137, 2, CURVE_POOL);        // Polygon, CURVE pool (stored in dexRouter slot by design)
+executor.setDexRouter(137, 0, QUICKSWAP_ROUTER);  // Polygon, UniV2 router (Quickswap example)
+executor.setDexRouter(137, 1, UNIV3_ROUTER);      // Polygon, UniV3 router
+executor.setDexRouter(137, 2, CURVE_POOL);        // Polygon, Curve pool (stored in dexRouter slot by design)
 
 // Register tokens
-executor.setToken(137, 0, 0, USDC_ADDRESS);       // USDC, CANONICAL
-executor.setToken(137, 1, 0, USDT_ADDRESS);       // USDT, CANONICAL
-executor.setToken(137, 4, 2, WMATIC_ADDRESS);     // WMATIC, WRAPPED
+executor.setToken(137, 1, 0, USDC_ADDRESS);       // TokenId.USDC = 1, CANONICAL
+executor.setToken(137, 2, 0, USDT_ADDRESS);       // TokenId.USDT = 2, CANONICAL
+executor.setToken(137, 0, 2, WMATIC_ADDRESS);     // TokenId.WNATIVE = 0, WRAPPED
 ```
 
 Batch operations also available:
