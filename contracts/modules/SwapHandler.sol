@@ -39,8 +39,8 @@ abstract contract SwapHandler {
         bytes memory extraData
     ) internal returns (uint256 amountOut) {
         
-        // Safe approval - use forceApprove or standard approve pattern
-        IERC20(tokenIn).safeApprove(routerOrPool, amountIn);
+        // Safe approval - use forceApprove for OpenZeppelin v5
+        IERC20(tokenIn).forceApprove(routerOrPool, amountIn);
 
         if (protocol == PROTOCOL_UNIV2) {
             // UniV2-style swap (Quickswap, Sushi, etc.)
@@ -81,7 +81,7 @@ abstract contract SwapHandler {
         }
 
         // Reset approval to zero for safety (USDT compatibility)
-        IERC20(tokenIn).safeApprove(routerOrPool, 0);
+        IERC20(tokenIn).forceApprove(routerOrPool, 0);
         
         return amountOut;
     }
