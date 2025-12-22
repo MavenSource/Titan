@@ -24,6 +24,14 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
     // ============================================
 
     /**
+     * @notice Flash loan source providers
+     */
+    enum FlashSource {
+        AaveV3,       // 0: Aave V3 flashLoanSimple
+        BalancerV3    // 1: Balancer V3 unlock pattern
+    }
+
+    /**
      * @notice Route encoding format
      */
     enum RouteEncoding {
@@ -35,26 +43,24 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
      * @notice DEX identifiers for registry-based routing
      */
     enum Dex {
-        QUICKSWAP,    // 0
-        UNIV3,        // 1
-        CURVE,        // 2
-        SUSHISWAP,    // 3
-        BALANCER,     // 4
-        PANCAKESWAP,  // 5
-        TRADER_JOE    // 6
+        UniV2,        // 0: UniswapV2-style (Quickswap, Sushiswap, etc.)
+        UniV3,        // 1: Uniswap V3
+        Curve,        // 2: Curve pools
+        Balancer,     // 3: Balancer
+        Dodo,         // 4: Dodo
+        Unknown       // 5: Unknown/Other DEX
     }
 
     /**
      * @notice Token identifiers for registry-based routing
      */
     enum TokenId {
-        USDC,         // 0
-        USDT,         // 1
-        DAI,          // 2
-        WETH,         // 3
-        WMATIC,       // 4
-        WBTC,         // 5
-        FRAX          // 6
+        WNATIVE,      // 0: Wrapped native token (WETH, WMATIC, etc.)
+        USDC,         // 1: USD Coin
+        USDT,         // 2: Tether USD
+        DAI,          // 3: Dai Stablecoin
+        WETH,         // 4: Wrapped Ether
+        WBTC          // 5: Wrapped Bitcoin
     }
 
     /**
@@ -182,24 +188,24 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
 
     /**
      * @notice Execute arbitrage with flashloan
-     * @param flashSource 1=Balancer V3, 2=Aave V3
+     * @param flashSource Flash loan source (AaveV3=0, BalancerV3=1)
      * @param loanToken Token to borrow
      * @param loanAmount Amount to borrow
      * @param routeData Encoded route (RAW_ADDRESSES or REGISTRY_ENUMS)
      */
     function execute(
-        uint8 flashSource,
+        FlashSource flashSource,
         address loanToken,
         uint256 loanAmount,
         bytes calldata routeData
     ) external onlyOwner {
-        if (flashSource == 1) {
+        if (flashSource == FlashSource.AaveV3) {
+            // Aave V3: Standard flashloan
+            AAVE_POOL.flashLoanSimple(address(this), loanToken, loanAmount, routeData, 0);
+        } else if (flashSource == FlashSource.BalancerV3) {
             // Balancer V3: Unlock pattern
             bytes memory callbackData = abi.encode(loanToken, loanAmount, routeData);
             BALANCER_VAULT.unlock(abi.encodeWithSelector(this.onBalancerUnlock.selector, callbackData));
-        } else if (flashSource == 2) {
-            // Aave V3: Standard flashloan
-            AAVE_POOL.flashLoanSimple(address(this), loanToken, loanAmount, routeData, 0);
         } else {
             revert("Invalid flash source");
         }
@@ -251,7 +257,7 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
         uint256 owed = amount + premium;
         require(finalAmount >= owed, "Insufficient return");
         
-        IERC20(asset).safeApprove(address(AAVE_POOL), owed);
+        IERC20(asset).forceApprove(address(AAVE_POOL), owed);
 
         emit RouteExecuted(asset, amount, finalAmount, finalAmount - owed);
         
@@ -297,7 +303,7 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
     ) internal returns (uint256) {
         
         (
-            RouteEncoding /* enc */,
+            RouteEncoding enc,
             uint8[] memory protocols,
             address[] memory routersOrPools,
             address[] memory tokenOutPath,
@@ -344,7 +350,7 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
     ) internal returns (uint256) {
         
         (
-            RouteEncoding /* enc */,
+            RouteEncoding enc,
             uint8[] memory protocols,
             uint8[] memory dexIds,
             uint8[] memory tokenOutIds,
