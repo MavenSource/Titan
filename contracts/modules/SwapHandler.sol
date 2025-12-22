@@ -12,6 +12,11 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  * @notice Battle-ready swap execution module with MEV protection
  * @dev Supports UniV2 multi-hop, UniV3 multi-hop, and Curve with on-chain slippage protection
  * 
+ * SECURITY FEATURES:
+ * - minOut enforcement at protocol level (fail-fast within router calls)
+ * - Defense-in-depth: Additional balance verification after swap
+ * - Safe approve patterns for USDT-style tokens
+ * 
  * extraData schema (UNIFORM):
  *   extraData = abi.encode(uint256 minOut, bytes protocolData)
  *
@@ -19,17 +24,21 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  * - UNIV2:
  *     protocolData = abi.encode(address[] path, uint256 deadline)
  *     (path[0] must be tokenIn, last must be tokenOut)
+ *     minOut passed to swapExactTokensForTokens for on-chain protection
  *
  * - UNIV3 (single hop):
  *     protocolData = abi.encode(uint24 fee, uint160 sqrtPriceLimitX96, uint256 deadline)
+ *     minOut passed as amountOutMinimum for on-chain protection
  *
  * - UNIV3 (multi-hop exactInput):
  *     protocolData = abi.encode(bytes path, uint256 deadline)
  *     where `path` is Uniswap V3 path encoding: tokenIn(20) + fee(3) + tokenMid(20) + fee(3) + tokenOut(20)...
+ *     minOut passed as amountOutMinimum for on-chain protection
  *
  * - CURVE:
  *     protocolData = abi.encode(int128 i, int128 j, uint256 deadline)
  *     (routerOrPool is the Curve pool address)
+ *     minOut passed to exchange() for on-chain protection
  */
 abstract contract SwapHandler {
     using SafeERC20 for IERC20;

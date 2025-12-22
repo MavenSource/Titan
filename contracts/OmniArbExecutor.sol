@@ -239,6 +239,11 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
 
     /**
      * @notice Balancer V3 unlock callback
+     * @dev Security features:
+     *      - Caller verification: Only BALANCER_VAULT can call
+     *      - Profit calculation relative to startBal: Prevents pre-existing balance masking losses
+     *      - Explicit feeHint parameter: No hidden fee changes
+     *      - Correct B3 repayment: transfer + settle (NOT approve)
      */
     function onBalancerUnlock(bytes calldata callbackData) external returns (bytes memory) {
         require(msg.sender == address(BALANCER_VAULT), "B3: bad caller");
@@ -256,7 +261,8 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
 
         uint256 endBal = IERC20(loanToken).balanceOf(address(this));
 
-        // Profit calculation: endBal - startBal - feeHint
+        // Profit calculation relative to starting balance (security: prevents balance masking)
+        // pnl = endBal - startBal - feeHint (loan principal cancels out)
         int256 pnl = int256(endBal) - int256(startBal) - int256(feeHint);
         require(pnl >= int256(minProfitToken), "MIN_PROFIT");
 
@@ -264,7 +270,8 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
         uint256 repayAmount = loanAmount + feeHint;
         require(endBal >= repayAmount, "B3: insufficient repay");
 
-        // Transfer to Vault, then settle (NOT approve)
+        // Balancer V3 repayment: transfer to Vault, then settle to clear debt
+        // (NOT approve - approve doesn't work with B3's transient accounting)
         IERC20(loanToken).safeTransfer(address(BALANCER_VAULT), repayAmount);
         BALANCER_VAULT.settle(IERC20(loanToken), repayAmount);
 
@@ -289,6 +296,11 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
 
     /**
      * @notice Aave V3 flashloan callback
+     * @dev Security features:
+     *      - Caller verification: Only AAVE_POOL can call
+     *      - Initiator verification: Only this contract can initiate (prevents unauthorized flashloans)
+     *      - Profit calculation relative to startBal: Prevents pre-existing balance masking losses
+     *      - Dynamic premium reading: Adapts to governance fee changes
      */
     function executeOperation(
         address asset,
@@ -311,8 +323,8 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
 
         uint256 owed = amount + premium;
 
-        // Profit calculation: endBal - startBal - premium
-        // Note: startBal already includes borrowed amount
+        // Profit calculation relative to starting balance (security: prevents balance masking)
+        // Note: startBal already includes borrowed amount, so real pnl = endBal - startBal - premium
         int256 pnl = int256(endBal) - int256(startBal) - int256(premium);
         require(pnl >= int256(minProfitToken), "MIN_PROFIT");
         
