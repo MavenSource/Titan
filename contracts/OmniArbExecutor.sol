@@ -32,20 +32,6 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
     }
 
     /**
-     * @notice Chain identifiers based on block.chainid
-     */
-    enum Chain {
-        ETHEREUM,     // 0 = chainId 1
-        POLYGON,      // 1 = chainId 137
-        ARBITRUM,     // 2 = chainId 42161
-        OPTIMISM,     // 3 = chainId 10
-        BASE,         // 4 = chainId 8453
-        BSC,          // 5 = chainId 56
-        AVALANCHE,    // 6 = chainId 43114
-        FANTOM        // 7 = chainId 250
-    }
-
-    /**
      * @notice DEX identifiers for registry-based routing
      */
     enum Dex {
