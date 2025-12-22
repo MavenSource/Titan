@@ -18,6 +18,11 @@ abstract contract SwapHandler {
     uint8 internal constant PROTOCOL_UNIV2 = 1;  // UniV2-style (Quickswap, Sushi, etc.)
     uint8 internal constant PROTOCOL_UNIV3 = 2;  // Uniswap V3
     uint8 internal constant PROTOCOL_CURVE = 3;  // Curve Finance
+    
+    /* ========== CONFIGURABLE DEADLINE ========== */
+    
+    // Default deadline can be overridden by child contracts
+    uint256 internal _swapDeadline = 180; // 3 minutes default
 
     /* ========== INTERNAL SWAP EXECUTION ========== */
 
@@ -79,7 +84,7 @@ abstract contract SwapHandler {
             0, // amountOutMin (validated off-chain)
             path,
             address(this),
-            block.timestamp + 180 // 3 minute deadline
+            block.timestamp + _swapDeadline  // Use configurable deadline
         );
         
         return amounts[amounts.length - 1];
@@ -109,7 +114,7 @@ abstract contract SwapHandler {
             tokenOut: tokenOut,
             fee: fee,
             recipient: address(this),
-            deadline: block.timestamp + 180, // 3 minute deadline
+            deadline: block.timestamp + _swapDeadline,  // Use configurable deadline
             amountIn: amountIn,
             amountOutMinimum: 0, // Validated off-chain
             sqrtPriceLimitX96: 0

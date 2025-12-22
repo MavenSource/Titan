@@ -25,6 +25,18 @@ async function main() {
     8453: { // Base
       balancer: "0xbA1333333333a1BA1108E8412f11850A5C319bA9",
       aave: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5"
+    },
+    56: { // BSC
+      balancer: "0xbA1333333333a1BA1108E8412f11850A5C319bA9",
+      aave: "0x6807dc923806fE8Fd134338EABCA509979a7e0cB"  // Radiant (Aave fork)
+    },
+    43114: { // Avalanche
+      balancer: "0xbA1333333333a1BA1108E8412f11850A5C319bA9",
+      aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
+    },
+    250: { // Fantom
+      balancer: "0xbA1333333333a1BA1108E8412f11850A5C319bA9",
+      aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
     }
   };
 

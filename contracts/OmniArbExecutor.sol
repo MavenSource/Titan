@@ -126,7 +126,7 @@ enum Token {
  * @notice Multi-chain arbitrage executor with flash loan support
  * @dev Reuses SwapHandler module (system-wide component) for all swaps
  */
-contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler {
+contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSimpleReceiver {
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
@@ -175,6 +175,9 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler {
         
         // Initialize chain ID mappings
         _initializeChainMappings();
+        
+        // Set default swap deadline (inherited from SwapHandler)
+        _swapDeadline = swapDeadline;
     }
     
     /* ========== INITIALIZATION ========== */
@@ -205,6 +208,7 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler {
     function setSwapDeadline(uint256 _seconds) external onlyOwner {
         require(_seconds >= 60 && _seconds <= 600, "Deadline must be 60-600 seconds");
         swapDeadline = _seconds;
+        _swapDeadline = _seconds;  // Update SwapHandler's internal deadline
     }
     
     /**
@@ -242,7 +246,7 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler {
         address[] calldata _addresses
     ) external onlyOwner {
         require(_tokens.length == _addresses.length, "Length mismatch");
-        for (uint i = 0; i < _tokens.length; i++) {
+        for (uint256 i = 0; i < _tokens.length; i++) {
             require(_addresses[i] != address(0), "Invalid address");
             tokenRegistry[_chain][_tokens[i]] = _addresses[i];
             emit RegistryUpdated("token", uint256(_chain), uint256(_tokens[i]), _addresses[i]);
@@ -258,7 +262,7 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler {
         address[] calldata _routers
     ) external onlyOwner {
         require(_dexs.length == _routers.length, "Length mismatch");
-        for (uint i = 0; i < _dexs.length; i++) {
+        for (uint256 i = 0; i < _dexs.length; i++) {
             require(_routers[i] != address(0), "Invalid router");
             dexRegistry[_chain][_dexs[i]] = _routers[i];
             emit RegistryUpdated("dex", uint256(_chain), uint256(_dexs[i]), _routers[i]);
@@ -422,7 +426,7 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler {
         address currentToken = inputToken;
 
         // Execute each hop using SwapHandler (system-wide module)
-        for (uint i = 0; i < protocols.length; i++) {
+        for (uint256 i = 0; i < protocols.length; i++) {
             require(routers[i] != address(0), "Invalid router");
             require(path[i] != address(0), "Invalid token");
             require(currentAmount > 0, "Zero balance");
