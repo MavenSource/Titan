@@ -64,7 +64,7 @@ let failedUnsupported = 0;
 
 for (const [chainId, name] of Object.entries(UNSUPPORTED_CHAINS)) {
     try {
-        const engine = new OmniSDKEngine(parseInt(chainId), "https://dummy.rpc.url");
+        new OmniSDKEngine(parseInt(chainId), "https://dummy.rpc.url");
         console.log(`  ✗ Chain ${chainId} (${name}): Should have thrown error but didn't`);
         failedUnsupported++;
     } catch (error) {
