@@ -3,7 +3,8 @@
  * Validates intelligent routing logic for different trade scenarios
  */
 
-// Prevent network calls during testing
+// Prevent network calls during testing by setting a test API key
+// The lazy-loading in lifi_manager.js will prevent SDK initialization during import
 process.env.LIFI_API_KEY = 'test_key';
 
 const { AggregatorSelector } = require('../execution/aggregator_selector');
@@ -90,5 +91,5 @@ console.log('━━━━━━━━━━━━━━━━━━━━━━�
 console.log('✅ ALL TESTS PASSED! Aggregator routing logic works correctly.');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-// Exit cleanly to avoid LiFi SDK network errors
-process.exit(0);
+// Tests complete successfully - no need to exit early
+// The lazy-loading pattern prevents LiFi SDK network errors during test execution
