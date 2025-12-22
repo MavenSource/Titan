@@ -1,0 +1,17 @@
+{
+  "total_opportunities": 0,
+  "total_executed": 0,
+  "total_successful": 0,
+  "total_profit": 0,
+  "total_gas_cost": 0,
+  "using_real_components": true,
+  "components": [
+    "OmniBrain",
+    "ProfitEngine",
+    "DexPricer",
+    "TitanCommander",
+    "MarketForecaster",
+    "QLearningAgent",
+    "FeatureStore"
+  ]
+}
