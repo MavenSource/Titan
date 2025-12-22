@@ -12,6 +12,8 @@
 - [Performance Optimization](#performance-optimization)
 - [Security Best Practices](#security-best-practices)
 
+> **📋 For Full-Scale Mainnet Deployment:** See [GO_LIVE_CHECKLIST.md](GO_LIVE_CHECKLIST.md) for a comprehensive validation of all requirements for running Titan at full scale with massive market coverage and production safeguards.
+
 ---
 
 ## Overview
@@ -842,6 +844,7 @@ tar -czf backup_$(date +%Y%m%d).tar.gz \
 
 ### Documentation
 - [README.md](README.md) - System overview
+- [GO_LIVE_CHECKLIST.md](GO_LIVE_CHECKLIST.md) - **Full-scale mainnet deployment validation**
 - [QUICKSTART.md](QUICKSTART.md) - Quick setup guide
 - [SECURITY_SUMMARY.md](SECURITY_SUMMARY.md) - Security features
 - [TESTING_CHECKLIST.md](TESTING_CHECKLIST.md) - Test procedures

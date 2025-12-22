@@ -68,11 +68,13 @@ This release includes comprehensive automation for installation, deployment, and
 
 ## 📚 Additional Documentation
 
-- **[ONE_CLICK_INSTALL.md](ONE_CLICK_INSTALL.md)** - ⚡ **NEW!** One-click installation guide (simplest way!)
+- **[GO_LIVE_CHECKLIST.md](GO_LIVE_CHECKLIST.md)** - 🚀 **NEW!** Full-scale mainnet deployment validation checklist
+- **[ONE_CLICK_INSTALL.md](ONE_CLICK_INSTALL.md)** - ⚡ One-click installation guide (simplest way!)
 - **[FULL_INSTALLATION_GUIDE.md](FULL_INSTALLATION_GUIDE.md)** - Complete one-command installation guide
 - **[QUICKSTART.md](QUICKSTART.md)** - 15-minute setup guide
 - **[MAINNET_QUICKSTART.md](MAINNET_QUICKSTART.md)** - 5-minute mainnet paper mode setup
 - **[MAINNET_MODES.md](MAINNET_MODES.md)** - Paper trading vs live trading modes
+- **[OPERATIONS_GUIDE.md](OPERATIONS_GUIDE.md)** - Comprehensive operations manual
 - **[INSTALL.md](INSTALL.md)** - Detailed installation for all platforms
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
 - **[RELEASE_NOTES.md](RELEASE_NOTES.md)** - Current release details
