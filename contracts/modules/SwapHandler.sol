@@ -43,6 +43,8 @@ abstract contract SwapHandler {
     error BadRouter(address router);
     error Slippage(uint256 out, uint256 minOut);
     error InvalidPath(string reason);
+    error InvalidToken(address token);
+    error InvalidAmount();
 
     /**
      * @notice Execute a swap on the specified protocol with on-chain slippage protection
@@ -62,7 +64,11 @@ abstract contract SwapHandler {
         uint256 amountIn,
         bytes memory extraData
     ) internal returns (uint256 amountOut) {
+        // Input validation
         if (router.code.length == 0) revert BadRouter(router);
+        if (tokenIn == address(0)) revert InvalidToken(tokenIn);
+        if (tokenOut == address(0)) revert InvalidToken(tokenOut);
+        if (amountIn == 0) revert InvalidAmount();
 
         (uint256 minOut, bytes memory protocolData) = abi.decode(extraData, (uint256, bytes));
 
