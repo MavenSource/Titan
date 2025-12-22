@@ -579,7 +579,7 @@ This validation checklist ensures that the Titan system is fully ready for deplo
   - [ ] Automated recovery from failures
   - [ ] Continuous optimization
 
-**Reference:** [GO_LIVE_CHECKLIST.md - Section 9](GO_LIVE_CHECKLIST.md#-graduated-deployment-recommendations)
+**Reference:** [GO_LIVE_CHECKLIST.md - Section 9](GO_LIVE_CHECKLIST.md#graduated-deployment-recommendations)
 
 ---
 
