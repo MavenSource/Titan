@@ -3,7 +3,7 @@ export const RouteEncoding = { RAW_ADDRESSES: 0, REGISTRY_ENUMS: 1 } as const;
 
 export const SwapProtocol = { UNIV2: 1, UNIV3: 2, CURVE: 3 } as const;
 
-export const Dex = { UniV2: 0, UniV3: 1, Curve: 2, Balancer: 3, Dodo: 4, Unknown: 5 } as const;
+export const Dex = { UniV2: 1, UniV3: 2, Curve: 3, Balancer: 4, Dodo: 5, Unknown: 6 } as const;
 
 export const TokenType = { CANONICAL: 0, BRIDGED: 1, WRAPPED: 2 } as const;
 
