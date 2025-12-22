@@ -27,6 +27,13 @@ from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Add offchain/brain to path
+sys.path.insert(0, str(Path(__file__).parent / "offchain" / "brain"))
+
+# Load environment from offchain directory
+ENV_PATH = Path(__file__).parent / "offchain" / ".env"
+load_dotenv(ENV_PATH)
+
 # Setup comprehensive logging
 log_dir = Path('logs')
 log_dir.mkdir(exist_ok=True)

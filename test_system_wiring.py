@@ -3,6 +3,10 @@ Quick test script to verify all systems are wired correctly
 """
 import sys
 import os
+from pathlib import Path
+
+# Add offchain/brain to path
+sys.path.insert(0, str(Path(__file__).parent / "offchain" / "brain"))
 
 print("="*70)
 print("  TITAN SYSTEM TEST")

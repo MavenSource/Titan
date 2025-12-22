@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+# Add offchain/brain to path
+sys.path.insert(0, str(Path(__file__).parent / "offchain" / "brain"))
+
 from web3 import Web3
 from core.enum_matrix import ChainManager
 from core.config import CHAINS

@@ -23,7 +23,12 @@ from pathlib import Path
 from web3 import Web3
 from dotenv import load_dotenv
 
-load_dotenv()
+# Add offchain/brain to path
+sys.path.insert(0, str(Path(__file__).parent / "offchain" / "brain"))
+
+# Load environment from offchain directory
+ENV_PATH = Path(__file__).parent / "offchain" / ".env"
+load_dotenv(ENV_PATH)
 
 logging.basicConfig(
     level=logging.INFO,

@@ -1,4 +1,9 @@
 import sys
+from pathlib import Path
+
+# Add offchain/brain to path
+sys.path.insert(0, str(Path(__file__).parent / "offchain" / "brain"))
+
 print("Python starting...", flush=True)
 
 try:

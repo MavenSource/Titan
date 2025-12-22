@@ -25,8 +25,8 @@ from typing import Dict, List, Optional
 import pandas as pd
 import numpy as np
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add offchain/brain to path
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "offchain", "brain"))
 
 # Import REAL Titan components
 from ml.brain import OmniBrain, ProfitEngine
@@ -39,7 +39,9 @@ from ml.cortex.feature_store import FeatureStore
 from web3 import Web3
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load environment from offchain directory
+ENV_PATH = Path(__file__).parent / "offchain" / ".env"
+load_dotenv(ENV_PATH)
 getcontext().prec = 28
 
 logging.basicConfig(

@@ -25,8 +25,12 @@ from threading import Thread, Event
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment
-load_dotenv()
+# Add offchain/brain to path for imports
+sys.path.insert(0, str(Path(__file__).parent / "offchain" / "brain"))
+
+# Load environment from offchain directory
+ENV_PATH = Path(__file__).parent / "offchain" / ".env"
+load_dotenv(ENV_PATH)
 
 # Configure logging
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
@@ -210,8 +214,8 @@ class MainnetOrchestrator:
     def start_data_ingestion(self):
         """Start real-time mainnet data ingestion and arbitrage scanning"""
         logger.info("📡 Starting real-time data ingestion + arbitrage calculations...")
-        logger.info("   Signals will be written to: signals/outgoing/")
-        logger.info("   Make sure execution/bot.js is running to process signals")
+        logger.info("   Signals will be written to: shared/signals/outgoing/")
+        logger.info("   Make sure offchain/executor/execution/bot.js is running to process signals")
         logger.info("   This will run continuously. Press Ctrl+C to stop.")
         logger.info("")
         

@@ -95,8 +95,8 @@ class OmniBrain:
         
         # 3. Communication (File-based signals)
         from pathlib import Path
-        self.signals_dir = Path('signals/outgoing')
-        self.signals_dir.mkdir(parents=True, exist_ok=True)
+        from core.config import SIGNALS_OUTGOING
+        self.signals_dir = SIGNALS_OUTGOING
         logger.info(f"Signal output directory: {self.signals_dir}")
         
         # 4. Wallet Configuration
