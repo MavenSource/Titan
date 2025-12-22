@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interfaces/IDEX.sol";
+import "../interfaces/IUniV2.sol";
+import "../interfaces/IUniV3.sol";
+import "../interfaces/ICurve.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 abstract contract SwapHandler {
