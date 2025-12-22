@@ -72,11 +72,19 @@ else
     echo -e "${YELLOW}[!] No terminal emulator detected${NC}"
     echo "Starting components in background..."
     mkdir -p logs
-    cd offchain/brain && python3 ml/brain.py > ../../logs/brain.log 2>&1 &
+    
+    # Use absolute paths for safety
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
+    cd "$SCRIPT_DIR/offchain/brain" || { echo "Failed to cd to brain directory"; exit 1; }
+    python3 ml/brain.py > "$SCRIPT_DIR/logs/brain.log" 2>&1 &
     BRAIN_PID=$!
-    cd ../executor && node execution/bot.js > ../../logs/bot.log 2>&1 &
+    
+    cd "$SCRIPT_DIR/offchain/executor" || { echo "Failed to cd to executor directory"; exit 1; }
+    node execution/bot.js > "$SCRIPT_DIR/logs/bot.log" 2>&1 &
     BOT_PID=$!
-    cd ../..
+    
+    cd "$SCRIPT_DIR"
     echo -e "${GREEN}[✓] Brain PID: $BRAIN_PID${NC}"
     echo -e "${GREEN}[✓] Executor PID: $BOT_PID${NC}"
     echo ""

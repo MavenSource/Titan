@@ -128,8 +128,13 @@ if [ $? -eq 0 ]; then
     # Copy ABIs to shared directory
     echo "Copying ABIs to shared directory..."
     mkdir -p shared/abi
-    cp -r onchain/artifacts/contracts/*.sol/*.json shared/abi/ 2>/dev/null || true
-    print_status "ABIs copied to shared/abi/"
+    if [ -d "onchain/artifacts/contracts" ]; then
+        cp -r onchain/artifacts/contracts/*.sol/*.json shared/abi/ 2>/dev/null && \
+            print_status "ABIs copied to shared/abi/" || \
+            echo "Note: No ABIs to copy or copy failed"
+    else
+        echo "Warning: onchain/artifacts/contracts directory not found"
+    fi
 else
     print_error "Smart contract compilation failed"
     cd ..

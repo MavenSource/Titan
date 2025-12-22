@@ -1,5 +1,7 @@
 // require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config({ path: "../offchain/.env" });
+const path = require("path");
+const envPath = path.join(__dirname, "..", "offchain", ".env");
+require("dotenv").config({ path: envPath });
 
 // Helper function to get accounts array (empty if no valid private key)
 const getAccounts = () => {
