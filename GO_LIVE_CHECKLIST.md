@@ -4,6 +4,8 @@
 
 This document validates all requirements for running Titan at full scale on mainnet with "Massive" market coverage, real-time DEX data, and production safeguards.
 
+> **📋 Related Validation:** See [VALIDATION_CHECKLIST.md](VALIDATION_CHECKLIST.md) for OmniArbExecutor refactoring validation (Solidity contracts, interfaces, route encoding).
+
 ---
 
 ## ✅ Go-Live Requirements Validation
@@ -655,6 +657,9 @@ make start-mainnet-live
 ## 📞 Support
 
 ### Documentation
+- [VALIDATION_CHECKLIST.md](VALIDATION_CHECKLIST.md) - Master validation checklist (complete deployment readiness)
+- [CHECKLIST_VALIDATION_SUMMARY.md](CHECKLIST_VALIDATION_SUMMARY.md) - Executive validation summary
+- [TESTING_CHECKLIST.md](TESTING_CHECKLIST.md) - Comprehensive testing procedures
 - [README.md](README.md) - System overview
 - [QUICKSTART.md](QUICKSTART.md) - Quick setup
 - [OPERATIONS_GUIDE.md](OPERATIONS_GUIDE.md) - Detailed operations manual

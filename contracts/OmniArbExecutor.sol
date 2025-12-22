@@ -28,96 +28,52 @@ import "./interfaces/IAaveV3.sol";
 /**
  * @dev Chain identifiers mapped from block.chainid
  */
-enum Chain {
-    ETHEREUM,      // 1
-    POLYGON,       // 137
-    ARBITRUM,      // 42161
-    OPTIMISM,      // 10
-    BASE,          // 8453
-    BSC,           // 56
-    AVALANCHE,     // 43114
-    FANTOM,        // 250
-    LINEA,         // 59144
-    SCROLL,        // 534352
-    MANTLE,        // 5000
-    ZKSYNC,        // 324
-    BLAST,         // 81457
-    CELO,          // 42220
-    OPBNB          // 204
-}
+contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
+    using SafeERC20 for IERC20;
 
-/**
- * @dev DEX identifiers (per-chain router registry)
- */
-enum DEX {
-    UNISWAP_V2,
-    UNISWAP_V3,
-    SUSHISWAP,
-    QUICKSWAP,
-    PANCAKESWAP,
-    CURVE,
-    BALANCER,
-    TRADER_JOE,
-    SPOOKYSWAP,
-    AERODROME,
-    VELODROME
-}
+    // ============================================
+    // ENUMS
+    // ============================================
 
-/**
- * @dev Token identifiers with WRAPPED + BRIDGED variants
- * Format: TOKEN_VARIANT_CHAIN (where applicable)
- */
-enum Token {
-    // Native wrapped
-    WETH,          // Wrapped ETH on Ethereum
-    WMATIC,        // Wrapped MATIC on Polygon
-    WBNB,          // Wrapped BNB on BSC
-    WAVAX,         // Wrapped AVAX on Avalanche
-    WFTM,          // Wrapped FTM on Fantom
-    
-    // Stablecoins (native)
-    USDC,          // Native USDC on origin chains
-    USDT,          // Native USDT on origin chains
-    DAI,           // Native DAI on origin chains
-    FRAX,          // Native FRAX
-    
-    // Bridged stablecoins on Polygon
-    USDC_BRIDGED_POLYGON,
-    USDT_BRIDGED_POLYGON,
-    DAI_BRIDGED_POLYGON,
-    
-    // Bridged stablecoins on Arbitrum
-    USDC_BRIDGED_ARBITRUM,
-    USDT_BRIDGED_ARBITRUM,
-    DAI_BRIDGED_ARBITRUM,
-    
-    // Bridged stablecoins on Optimism
-    USDC_BRIDGED_OPTIMISM,
-    USDT_BRIDGED_OPTIMISM,
-    DAI_BRIDGED_OPTIMISM,
-    
-    // Bridged stablecoins on Base
-    USDC_BRIDGED_BASE,
-    
-    // Bridged ETH variants
-    WETH_BRIDGED_POLYGON,
-    WETH_BRIDGED_ARBITRUM,
-    WETH_BRIDGED_OPTIMISM,
-    WETH_BRIDGED_BASE,
-    WETH_BRIDGED_AVALANCHE,
-    
-    // Bridged BTC variants
-    WBTC,
-    WBTC_BRIDGED_POLYGON,
-    WBTC_BRIDGED_ARBITRUM,
-    
-    // Other major tokens
-    LINK,
-    AAVE,
-    CRV,
-    BAL,
-    SUSHI
-}
+    /**
+     * @notice Flash loan source providers
+     */
+    enum FlashSource {
+        AaveV3,       // 0: Aave V3 flashLoanSimple
+        BalancerV3    // 1: Balancer V3 unlock pattern
+    }
+
+    /**
+     * @notice Route encoding format
+     */
+    enum RouteEncoding {
+        RAW_ADDRESSES,    // 0: Explicit router + token addresses
+        REGISTRY_ENUMS    // 1: DEX + Token enums resolved on-chain
+    }
+
+    /**
+     * @notice DEX identifiers for registry-based routing
+     */
+    enum Dex {
+        UniV2,        // 0: UniswapV2-style (Quickswap, Sushiswap, etc.)
+        UniV3,        // 1: Uniswap V3
+        Curve,        // 2: Curve pools
+        Balancer,     // 3: Balancer
+        Dodo,         // 4: Dodo
+        Unknown       // 5: Unknown/Other DEX
+    }
+
+    /**
+     * @notice Token identifiers for registry-based routing
+     */
+    enum TokenId {
+        WNATIVE,      // 0: Wrapped native token (WETH, WMATIC, etc.)
+        USDC,         // 1: USD Coin
+        USDT,         // 2: Tether USD
+        DAI,          // 3: Dai Stablecoin
+        WETH,         // 4: Wrapped Ether
+        WBTC          // 5: Wrapped Bitcoin
+    }
 
 /* ============================== MAIN CONTRACT ============================== */
 
@@ -299,36 +255,25 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
     /* ========== FLASH LOAN TRIGGER ========== */
     
     /**
-     * @notice Execute arbitrage with flash loan
-     * @param flashSource 1=Balancer, 2=Aave
-     * @param loanToken Token to borrow (can be address or resolved from enum)
+     * @notice Execute arbitrage with flashloan
+     * @param flashSource Flash loan source (AaveV3=0, BalancerV3=1)
+     * @param loanToken Token to borrow
      * @param loanAmount Amount to borrow
      * @param routeData Encoded route (supports both enum and raw address modes)
      */
     function execute(
-        uint8 flashSource,
+        FlashSource flashSource,
         address loanToken,
         uint256 loanAmount,
         bytes calldata routeData
-    ) external onlyOwner nonReentrant {
-        require(loanToken != address(0), "Invalid loan token");
-        require(loanAmount > 0, "Invalid loan amount");
-        
-        if (flashSource == 1) {
-            // Balancer V3: "Unlock" the vault
+    ) external onlyOwner {
+        if (flashSource == FlashSource.AaveV3) {
+            // Aave V3: Standard flashloan
+            AAVE_POOL.flashLoanSimple(address(this), loanToken, loanAmount, routeData, 0);
+        } else if (flashSource == FlashSource.BalancerV3) {
+            // Balancer V3: Unlock pattern
             bytes memory callbackData = abi.encode(loanToken, loanAmount, routeData);
-            BALANCER_VAULT.unlock(
-                abi.encodeWithSelector(this.onBalancerUnlock.selector, callbackData)
-            );
-        } else if (flashSource == 2) {
-            // Aave V3: Standard flash loan
-            AAVE_POOL.flashLoanSimple(
-                address(this),
-                loanToken,
-                loanAmount,
-                routeData,
-                0
-            );
+            BALANCER_VAULT.unlock(abi.encodeWithSelector(this.onBalancerUnlock.selector, callbackData));
         } else {
             revert("Invalid flash source");
         }
@@ -390,11 +335,8 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
         require(finalAmount >= owed, "Insufficient return");
         
         IERC20(asset).forceApprove(address(AAVE_POOL), owed);
-        
-        // Emit profit event
-        if (finalAmount > owed) {
-            emit ArbitrageExecuted(2, asset, amount, finalAmount - owed);
-        }
+
+        emit RouteExecuted(asset, amount, finalAmount, finalAmount - owed);
         
         return true;
     }
@@ -416,6 +358,7 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
     ) internal returns (uint256 finalAmount) {
         // Decode route: Arrays of [Protocol, Router, TokenOut, ExtraData]
         (
+            RouteEncoding enc,
             uint8[] memory protocols,
             address[] memory routers,
             address[] memory path,
@@ -452,12 +395,50 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
             currentToken = path[i];
         }
         
-        // Basic sanity check (actual profit validated by flash loan repayment)
-        require(
-            currentAmount >= inputAmount / MIN_OUTPUT_RATIO,
-            "Suspicious loss detected"
-        );
-        
+        (
+            RouteEncoding enc,
+            uint8[] memory protocols,
+            uint8[] memory dexIds,
+            uint8[] memory tokenOutIds,
+            uint8[] memory tokenOutTypes,
+            bytes[] memory extra
+        ) = abi.decode(routeData, (RouteEncoding, uint8[], uint8[], uint8[], uint8[], bytes[]));
+
+        // Validate lengths
+        require(protocols.length == dexIds.length, "len mismatch");
+        require(protocols.length == tokenOutIds.length, "len mismatch");
+        require(protocols.length == tokenOutTypes.length, "len mismatch");
+        require(protocols.length == extra.length, "len mismatch");
+        require(protocols.length > 0 && protocols.length <= 5, "Invalid route length");
+
+        uint256 chainId = block.chainid;
+        uint256 currentAmount = inputAmount;
+        address currentToken = inputToken;
+
+        for (uint i = 0; i < protocols.length; i++) {
+            // Resolve router from registry
+            address routerOrPool = dexRouter[chainId][dexIds[i]];
+            require(routerOrPool != address(0), "Router not registered");
+
+            // Resolve tokenOut from registry
+            address tokenOut = tokenRegistry[chainId][tokenOutIds[i]][tokenOutTypes[i]];
+            require(tokenOut != address(0), "Token not registered");
+
+            require(currentAmount > 0, "Zero balance");
+
+            currentAmount = _executeSwap(
+                protocols[i],
+                routerOrPool,
+                currentToken,
+                tokenOut,
+                currentAmount,
+                extra[i]
+            );
+
+            require(currentAmount > 0, "Swap returned zero");
+            currentToken = tokenOut;
+        }
+
         return currentAmount;
     }
 

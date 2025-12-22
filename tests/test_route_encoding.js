@@ -12,16 +12,25 @@ describe("OmniArbExecutor - Route Encoding Tests", function () {
   let executor;
   let owner;
 
-  // Mock addresses for testing
-  const MOCK_BALANCER = "0x0000000000000000000000000000000000000001";
-  const MOCK_AAVE = "0x0000000000000000000000000000000000000002";
-  const MOCK_ROUTER_1 = "0x0000000000000000000000000000000000000003";
-  const MOCK_ROUTER_2 = "0x0000000000000000000000000000000000000004";
-  const MOCK_POOL = "0x0000000000000000000000000000000000000005";
-  const MOCK_TOKEN_A = "0x0000000000000000000000000000000000000006";
-  const MOCK_TOKEN_B = "0x0000000000000000000000000000000000000007";
-  const MOCK_TOKEN_C = "0x0000000000000000000000000000000000000008";
+  // Addresses forconst ADDRESSES = {
 
+  BALANCER: "0xba12222222228d8ba445958a75a0704d566bf2c8",
+
+  AAVE: "0x7d2768de32b0b80b7a3454c06bdacb0f5aeb3a95",
+
+  ROUTER_1: "0x11111112542d85b3ef69ae05771c2dccff4faa26",
+
+  ROUTER_2: "0xe592427a0aece92de3edee1f18e0157c05861564",
+
+  POOL: "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+
+  TOKEN_A: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+
+  TOKEN_B: "0x6b175474e89094c44da98b954eedeac495271d0f",
+
+  TOKEN_C: "0xdac17f958d2ee523a2206206994597c13d831ec7"
+
+};
   beforeEach(async function () {
     [owner] = await ethers.getSigners();
 
@@ -46,16 +55,23 @@ describe("OmniArbExecutor - Route Encoding Tests", function () {
       // 3 hops: UniV2 -> UniV3 -> Curve
       const protocols = [1, 2, 3];
       
-      const routersOrPools = [
-        MOCK_ROUTER_1,  // UniV2 router
-        MOCK_ROUTER_2,  // UniV3 router
-        MOCK_POOL       // Curve pool
-      ];
-      
-      const tokenOutPath = [
-        MOCK_TOKEN_A,
-        MOCK_TOKEN_B,
-        MOCK_TOKEN_C
+   const routersOrPools = [
+
+REAL_ROUTER_1 , // UniV2 router
+
+REAL_ROUTER_2 , // UniV3 router
+
+REAL_POOL // Curve pool
+
+];
+
+const tokenOutPath = [
+
+REAL_TOKEN_A ,
+
+REAL_TOKEN_B ,
+
+REAL_TOKEN_C
       ];
       
       // Protocol-specific extraData
@@ -229,14 +245,17 @@ describe("OmniArbExecutor - Route Encoding Tests", function () {
     it("should encode a realistic Polygon arbitrage route", function () {
       const abi = ethers.AbiCoder.defaultAbiCoder();
       
-      // Simulated addresses (would be real on Polygon)
       const QUICKSWAP_ROUTER = "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff";
-      const UNIV3_ROUTER = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
-      const CURVE_AAVE_POOL = "0x445FE580eF8d70FF569aB36e80c647af338db351";
-      
-      const USDC = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
-      const USDT = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
-      const WMATIC = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
+
+const UNIV3_ROUTER = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
+
+const CURVE_AAVE_POOL = "0x445FE580eF8d70FF569aB36e80c647af338db351";
+
+const USDC = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
+
+const USDT = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
+
+const WMATIC = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
       
       // Route: USDC -> WMATIC -> USDT -> USDC (circular arbitrage)
       const protocols = [1, 2, 3];  // UniV2, UniV3, Curve

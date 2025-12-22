@@ -12,6 +12,8 @@
 - [Performance Optimization](#performance-optimization)
 - [Security Best Practices](#security-best-practices)
 
+> **📋 Complete Validation Checklist:** See [VALIDATION_CHECKLIST.md](VALIDATION_CHECKLIST.md) for the master validation checklist covering all deployment readiness requirements.
+>
 > **📋 For Full-Scale Mainnet Deployment:** See [GO_LIVE_CHECKLIST.md](GO_LIVE_CHECKLIST.md) for a comprehensive validation of all requirements for running Titan at full scale with massive market coverage and production safeguards.
 
 ---

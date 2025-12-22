@@ -61,8 +61,8 @@ abstract contract SwapHandler {
         require(tokenOut != address(0), "Invalid tokenOut");
         require(amountIn > 0, "Invalid amount");
         
-        // Approve router to spend tokens
-        _approveIfNeeded(tokenIn, router, amountIn);
+        // Safe approval - use forceApprove for OpenZeppelin v5
+        IERC20(tokenIn).forceApprove(routerOrPool, amountIn);
 
         if (protocol == PROTOCOL_UNIV2) {
             return _swapUniV2(router, tokenIn, tokenOut, amountIn);
@@ -77,42 +77,8 @@ abstract contract SwapHandler {
 
     /* ========== PROTOCOL-SPECIFIC IMPLEMENTATIONS ========== */
 
-    /**
-     * @notice Execute UniswapV2-style swap (Quickswap, Sushi, etc.)
-     */
-    function _swapUniV2(
-        address router,
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) private returns (uint256) {
-        address[] memory path = new address[](2);
-        path[0] = tokenIn;
-        path[1] = tokenOut;
-        
-        uint[] memory amounts = IUniswapV2Router(router).swapExactTokensForTokens(
-            amountIn,
-            0, // amountOutMin (validated off-chain)
-            path,
-            address(this),
-            block.timestamp + _swapDeadline  // Use configurable deadline
-        );
-        
-        return amounts[amounts.length - 1];
-    }
-
-    /**
-     * @notice Execute UniswapV3 swap
-     * @dev extraData should contain: uint24 fee
-     */
-    function _swapUniV3(
-        address router,
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        bytes memory extraData
-    ) private returns (uint256) {
-        uint24 fee = abi.decode(extraData, (uint24));
+        // Reset approval to zero for safety (USDT compatibility)
+        IERC20(tokenIn).forceApprove(routerOrPool, 0);
         
         // Validate pool fee tier
         require(
