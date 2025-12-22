@@ -12,8 +12,9 @@ export function dexToHop(compat: string): { protocol: number; dexId: number } {
   if (s.includes("uniswap v3")) return { protocol: SwapProtocol.UNIV3, dexId: Dex.UniV3 };
   if (s.includes("curve")) return { protocol: SwapProtocol.CURVE, dexId: Dex.Curve };
 
-  // IMPORTANT: Balancer swaps not implemented in SwapHandler yet
-  if (s.includes("balancer")) throw new Error("Balancer swaps not supported by SwapHandler (flash source is supported).");
+  // IMPORTANT: Balancer is supported as a flash loan source (FlashSource.BalancerV3)
+  // but Balancer swaps are not yet implemented in SwapHandler.
+  if (s.includes("balancer")) throw new Error("Balancer swaps not supported by SwapHandler. Use Balancer as flash source only.");
 
   throw new Error(`Unknown DEX compatibility: ${compat}`);
 }

@@ -125,7 +125,6 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IAaveFlashLoa
         _runRoute(asset, amount, params);
 
         uint256 owed = amount + premium;
-        IERC20(asset).forceApprove(address(AAVE_POOL), 0);
         IERC20(asset).forceApprove(address(AAVE_POOL), owed);
 
         uint256 endBal = IERC20(asset).balanceOf(address(this));
@@ -147,7 +146,6 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IAaveFlashLoa
 
         _runRoute(loanToken, loanAmount, routeData);
 
-        IERC20(loanToken).forceApprove(address(BALANCER_VAULT), 0);
         IERC20(loanToken).forceApprove(address(BALANCER_VAULT), loanAmount);
         BALANCER_VAULT.settle(IERC20(loanToken), loanAmount);
 
