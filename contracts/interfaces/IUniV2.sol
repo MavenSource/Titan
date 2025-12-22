@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-// Uniswap V2 Router Interface
+/**
+ * @title IUniV2
+ * @notice Interface for Uniswap V2 style routers (Quickswap, Sushi, etc.)
+ */
 interface IUniswapV2Router {
     function swapExactTokensForTokens(
         uint amountIn,

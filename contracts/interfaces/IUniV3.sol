@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-// Uniswap V3 Router Interface
+/**
+ * @title IUniV3
+ * @notice Interface for Uniswap V3 Router
+ */
 interface IUniswapV3Router {
     struct ExactInputSingleParams {
         address tokenIn;
@@ -14,5 +17,31 @@ interface IUniswapV3Router {
         uint160 sqrtPriceLimitX96;
     }
     
-    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
+    /**
+     * @notice Swaps amountIn of one token for as much as possible of another token
+     * @param params The parameters for the swap
+     * @return amountOut The amount of the received token
+     */
+    function exactInputSingle(ExactInputSingleParams calldata params) 
+        external 
+        payable 
+        returns (uint256 amountOut);
+
+    struct ExactInputParams {
+        bytes path;
+        address recipient;
+        uint256 deadline;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+    }
+
+    /**
+     * @notice Swaps amountIn of one token for as much as possible of another along the specified path
+     * @param params The parameters for the multi-hop swap
+     * @return amountOut The amount of the received token
+     */
+    function exactInput(ExactInputParams calldata params)
+        external
+        payable
+        returns (uint256 amountOut);
 }

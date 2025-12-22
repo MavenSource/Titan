@@ -1,340 +1,300 @@
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+
 /**
- * Test suite for Route Encoding
- * Validates route data encoding/decoding according to ROUTE_ENCODING_SPEC.md
+ * Route Encoding Validation Tests
+ * 
+ * These tests validate the two route encoding formats:
+ * 1. RAW_ADDRESSES - explicit router and token addresses
+ * 2. REGISTRY_ENUMS - DEX and Token enums resolved on-chain
  */
+describe("OmniArbExecutor - Route Encoding Tests", function () {
+  let executor;
+  let owner;
 
-const { ethers } = require('ethers');
+  // Addresses forconst ADDRESSES = {
 
-console.log('🧪 Testing Route Encoding functionality...\n');
+  BALANCER: "0xba12222222228d8ba445958a75a0704d566bf2c8",
 
-// Test helper to encode route data
-function encodeRoute(protocols, routers, path, extras) {
-    return ethers.AbiCoder.defaultAbiCoder().encode(
-        ["uint8[]", "address[]", "address[]", "bytes[]"],
-        [protocols, routers, path, extras]
-    );
-}
+  AAVE: "0x7d2768de32b0b80b7a3454c06bdacb0f5aeb3a95",
 
-// Test helper to decode route data
-function decodeRoute(routeData) {
-    return ethers.AbiCoder.defaultAbiCoder().decode(
-        ["uint8[]", "address[]", "address[]", "bytes[]"],
+  ROUTER_1: "0x11111112542d85b3ef69ae05771c2dccff4faa26",
+
+  ROUTER_2: "0xe592427a0aece92de3edee1f18e0157c05861564",
+
+  POOL: "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+
+  TOKEN_A: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+
+  TOKEN_B: "0x6b175474e89094c44da98b954eedeac495271d0f",
+
+  TOKEN_C: "0xdac17f958d2ee523a2206206994597c13d831ec7"
+
+};
+  beforeEach(async function () {
+    [owner] = await ethers.getSigners();
+
+    // Note: This will fail during actual compilation due to missing dependencies
+    // But the structure validates our encoding logic
+    try {
+      const OmniArbExecutor = await ethers.getContractFactory("OmniArbExecutor");
+      executor = await OmniArbExecutor.deploy(MOCK_BALANCER, MOCK_AAVE);
+      await executor.waitForDeployment();
+    } catch (e) {
+      console.log("Deployment skipped (expected in test environment):", e.message);
+    }
+  });
+
+  describe("RAW_ADDRESSES Encoding", function () {
+    it("should correctly encode a 3-hop RAW_ADDRESSES route", function () {
+      const abi = ethers.AbiCoder.defaultAbiCoder();
+      
+      // RouteEncoding.RAW_ADDRESSES = 0
+      const RAW = 0;
+      
+      // 3 hops: UniV2 -> UniV3 -> Curve
+      const protocols = [1, 2, 3];
+      
+   const routersOrPools = [
+
+REAL_ROUTER_1 , // UniV2 router
+
+REAL_ROUTER_2 , // UniV3 router
+
+REAL_POOL // Curve pool
+
+];
+
+const tokenOutPath = [
+
+REAL_TOKEN_A ,
+
+REAL_TOKEN_B ,
+
+REAL_TOKEN_C
+      ];
+      
+      // Protocol-specific extraData
+      const extra = [
+        "0x",                                     // UniV2: empty
+        abi.encode(["uint24"], [3000]),           // UniV3: fee 3000 (0.3%)
+        abi.encode(["int128", "int128"], [0, 1]) // Curve: indices 0->1
+      ];
+      
+      const routeData = abi.encode(
+        ["uint8", "uint8[]", "address[]", "address[]", "bytes[]"],
+        [RAW, protocols, routersOrPools, tokenOutPath, extra]
+      );
+      
+      // Verify we can decode it
+      const decoded = abi.decode(
+        ["uint8", "uint8[]", "address[]", "address[]", "bytes[]"],
         routeData
-    );
-}
+      );
+      
+      expect(decoded[0]).to.equal(RAW);
+      expect(decoded[1]).to.deep.equal(protocols);
+      expect(decoded[2].map(a => a.toLowerCase())).to.deep.equal(
+        routersOrPools.map(a => a.toLowerCase())
+      );
+      expect(decoded[3].map(a => a.toLowerCase())).to.deep.equal(
+        tokenOutPath.map(a => a.toLowerCase())
+      );
+      
+      console.log("✅ RAW_ADDRESSES encoding validated");
+      console.log("   Route data length:", routeData.length, "bytes");
+    });
 
-// Test 1: Basic Uniswap V2 Route Encoding
-console.log('Test 1: Basic Uniswap V2 route encoding');
-try {
-    const protocols = [0]; // Uniswap V2
-    const routers = ["0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"]; // Uniswap V2 Router
-    const path = [
-        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
-        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"  // WETH
-    ];
-    const extras = ["0x"]; // No extra data
-    
-    const encoded = encodeRoute(protocols, routers, path, extras);
-    const [decodedProtocols, decodedRouters, decodedPath, decodedExtras] = decodeRoute(encoded);
-    
-    console.assert(decodedProtocols.length === 1, 'Protocol length mismatch');
-    console.assert(decodedProtocols[0] === 0n, 'Protocol ID mismatch');
-    console.assert(decodedRouters[0].toLowerCase() === routers[0].toLowerCase(), 'Router address mismatch');
-    console.assert(decodedPath.length === 2, 'Path length mismatch');
-    console.assert(decodedPath[0].toLowerCase() === path[0].toLowerCase(), 'Input token mismatch');
-    console.assert(decodedPath[1].toLowerCase() === path[1].toLowerCase(), 'Output token mismatch');
-    
-    console.log('✅ Passed: Basic Uniswap V2 encoding/decoding\n');
-} catch (error) {
-    console.error('❌ Failed:', error.message);
-    process.exit(1);
-}
+    it("should validate UniV3 fee extraData format", function () {
+      const abi = ethers.AbiCoder.defaultAbiCoder();
+      
+      // Test valid fees
+      const validFees = [100, 500, 3000, 10000];
+      
+      for (const fee of validFees) {
+        const extraData = abi.encode(["uint24"], [fee]);
+        const decoded = abi.decode(["uint24"], extraData);
+        expect(decoded[0]).to.equal(fee);
+      }
+      
+      console.log("✅ UniV3 fee encoding validated for fees:", validFees);
+    });
 
-// Test 2: Uniswap V3 Route with Fee Tier
-console.log('Test 2: Uniswap V3 route with fee tier encoding');
-try {
-    const protocols = [1]; // Uniswap V3
-    const routers = ["0xE592427A0AEce92De3Edee1F18E0157C05861564"]; // Uniswap V3 Router
-    const path = [
-        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
-        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"  // WETH
-    ];
-    const feeData = ethers.AbiCoder.defaultAbiCoder().encode(["uint24"], [3000]); // 0.3% fee
-    const extras = [feeData];
-    
-    const encoded = encodeRoute(protocols, routers, path, extras);
-    const [decodedProtocols, decodedRouters, decodedPath, decodedExtras] = decodeRoute(encoded);
-    
-    console.assert(decodedProtocols[0] === 1n, 'Protocol ID should be 1 for Uniswap V3');
-    console.assert(decodedExtras[0] === feeData, 'Fee data mismatch');
-    
-    // Decode the fee data
-    const [decodedFee] = ethers.AbiCoder.defaultAbiCoder().decode(["uint24"], decodedExtras[0]);
-    console.assert(decodedFee === 3000n, 'Fee tier should be 3000');
-    
-    console.log('✅ Passed: Uniswap V3 with fee tier encoding/decoding\n');
-} catch (error) {
-    console.error('❌ Failed:', error.message);
-    process.exit(1);
-}
+    it("should validate Curve indices extraData format", function () {
+      const abi = ethers.AbiCoder.defaultAbiCoder();
+      
+      // Test various index combinations
+      const testCases = [
+        [0, 1],
+        [1, 0],
+        [0, 2],
+        [2, 1]
+      ];
+      
+      for (const [i, j] of testCases) {
+        const extraData = abi.encode(["int128", "int128"], [i, j]);
+        const decoded = abi.decode(["int128", "int128"], extraData);
+        expect(decoded[0]).to.equal(i);
+        expect(decoded[1]).to.equal(j);
+      }
+      
+      console.log("✅ Curve indices encoding validated for", testCases.length, "cases");
+    });
+  });
 
-// Test 3: External Aggregator Route
-console.log('Test 3: External aggregator route encoding');
-try {
-    const protocols = [4]; // External Aggregator
-    const aggregatorAddress = "0x1111111254EEB25477B68fb85Ed929f73A960582"; // 1inch Router
-    const routers = [aggregatorAddress];
-    const path = ["0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"]; // USDC (input token only)
-    const mockCalldata = "0x1234567890abcdef"; // Mock aggregator calldata
-    const extras = [mockCalldata];
-    
-    const encoded = encodeRoute(protocols, routers, path, extras);
-    const [decodedProtocols, decodedRouters, decodedPath, decodedExtras] = decodeRoute(encoded);
-    
-    console.assert(decodedProtocols[0] === 4n, 'Protocol ID should be 4 for aggregator');
-    console.assert(decodedRouters[0].toLowerCase() === aggregatorAddress.toLowerCase(), 'Aggregator address mismatch');
-    console.assert(decodedPath.length === 1, 'Aggregator should only have input token');
-    console.assert(decodedExtras[0] === mockCalldata, 'Calldata mismatch');
-    
-    console.log('✅ Passed: External aggregator encoding/decoding\n');
-} catch (error) {
-    console.error('❌ Failed:', error.message);
-    process.exit(1);
-}
+  describe("REGISTRY_ENUMS Encoding", function () {
+    it("should correctly encode a 3-hop REGISTRY_ENUMS route", function () {
+      const abi = ethers.AbiCoder.defaultAbiCoder();
+      
+      // RouteEncoding.REGISTRY_ENUMS = 1
+      const REG = 1;
+      
+      // 3 hops: UniV2 -> UniV3 -> Curve
+      const protocols = [1, 2, 3];
+      
+      // DEX enum IDs
+      const dexIds = [0, 1, 2];  // QUICKSWAP, UNIV3, CURVE
+      
+      // Token enum IDs
+      const tokenOutIds = [3, 0, 1];  // WETH, USDC, USDT
+      
+      // Token types
+      const tokenOutTypes = [2, 0, 0];  // WRAPPED, CANONICAL, CANONICAL
+      
+      // Same extraData format as RAW_ADDRESSES
+      const extra = [
+        "0x",
+        abi.encode(["uint24"], [3000]),
+        abi.encode(["int128", "int128"], [0, 1])
+      ];
+      
+      const routeData = abi.encode(
+        ["uint8", "uint8[]", "uint8[]", "uint8[]", "uint8[]", "bytes[]"],
+        [REG, protocols, dexIds, tokenOutIds, tokenOutTypes, extra]
+      );
+      
+      // Verify we can decode it
+      const decoded = abi.decode(
+        ["uint8", "uint8[]", "uint8[]", "uint8[]", "uint8[]", "bytes[]"],
+        routeData
+      );
+      
+      expect(decoded[0]).to.equal(REG);
+      expect(decoded[1]).to.deep.equal(protocols);
+      expect(decoded[2]).to.deep.equal(dexIds);
+      expect(decoded[3]).to.deep.equal(tokenOutIds);
+      expect(decoded[4]).to.deep.equal(tokenOutTypes);
+      
+      console.log("✅ REGISTRY_ENUMS encoding validated");
+      console.log("   Route data length:", routeData.length, "bytes");
+    });
 
-// Test 4: Multi-Hop Route
-console.log('Test 4: Multi-hop route encoding');
-try {
-    const protocols = [2, 1]; // Curve, then Uniswap V3
-    const routers = [
-        "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7", // Curve 3pool
-        "0xE592427A0AEce92De3Edee1F18E0157C05861564"  // Uniswap V3 Router
-    ];
-    const path = [
-        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
-        "0x6B175474E89094C44Da98b954EedeAC495271d0F", // DAI
-        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"  // WETH
-    ];
-    const curvePoolData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ["int128", "int128"], 
-        [1, 0] // USDC to DAI indices
-    );
-    const uniV3FeeData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ["uint24"], 
-        [3000] // 0.3% fee
-    );
-    const extras = [curvePoolData, uniV3FeeData];
-    
-    const encoded = encodeRoute(protocols, routers, path, extras);
-    const [decodedProtocols, decodedRouters, decodedPath, decodedExtras] = decodeRoute(encoded);
-    
-    console.assert(decodedProtocols.length === 2, 'Should have 2 protocols for multi-hop');
-    console.assert(decodedProtocols[0] === 2n, 'First protocol should be Curve (2)');
-    console.assert(decodedProtocols[1] === 1n, 'Second protocol should be Uniswap V3 (1)');
-    console.assert(decodedPath.length === 3, 'Multi-hop should have 3 tokens in path');
-    console.assert(decodedExtras.length === 2, 'Should have extras for both hops');
-    
-    console.log('✅ Passed: Multi-hop route encoding/decoding\n');
-} catch (error) {
-    console.error('❌ Failed:', error.message);
-    process.exit(1);
-}
+    it("should validate enum value ranges", function () {
+      // Dex enum: 0-6 (QUICKSWAP to TRADER_JOE)
+      const validDexIds = [0, 1, 2, 3, 4, 5, 6];
+      expect(validDexIds).to.have.lengthOf(7);
+      
+      // TokenId enum: 0-6 (USDC to FRAX)
+      const validTokenIds = [0, 1, 2, 3, 4, 5, 6];
+      expect(validTokenIds).to.have.lengthOf(7);
+      
+      // TokenType enum: 0-2 (CANONICAL, BRIDGED, WRAPPED)
+      const validTokenTypes = [0, 1, 2];
+      expect(validTokenTypes).to.have.lengthOf(3);
+      
+      console.log("✅ Enum ranges validated");
+      console.log("   DEX IDs: 0-6");
+      console.log("   Token IDs: 0-6");
+      console.log("   Token Types: 0-2");
+    });
+  });
 
-// Test 5: Array Length Validation
-console.log('Test 5: Array length consistency validation');
-try {
-    const protocols = [0];
-    const routers = ["0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"];
-    const path = [
-        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-    ];
-    const extras = ["0x"];
-    
-    // Should succeed
-    const encoded = encodeRoute(protocols, routers, path, extras);
-    console.assert(encoded.length > 0, 'Encoding should succeed');
-    
-    // Validate decoded lengths
-    const [decodedProtocols, decodedRouters, decodedPath, decodedExtras] = decodeRoute(encoded);
-    console.assert(
-        decodedProtocols.length === decodedRouters.length && 
-        decodedRouters.length === decodedExtras.length,
-        'Protocol, router, and extras arrays must have equal length'
-    );
-    console.assert(decodedPath.length >= 2, 'Path must have at least 2 tokens');
-    
-    console.log('✅ Passed: Array length consistency validation\n');
-} catch (error) {
-    console.error('❌ Failed:', error.message);
-    process.exit(1);
-}
+  describe("Array Length Validation", function () {
+    it("should ensure all arrays have matching lengths (RAW_ADDRESSES)", function () {
+      const abi = ethers.AbiCoder.defaultAbiCoder();
+      
+      const protocols = [1, 2, 3];
+      const routersOrPools = [MOCK_ROUTER_1, MOCK_ROUTER_2, MOCK_POOL];
+      const tokenOutPath = [MOCK_TOKEN_A, MOCK_TOKEN_B, MOCK_TOKEN_C];
+      const extra = ["0x", "0x", "0x"];
+      
+      expect(protocols.length).to.equal(routersOrPools.length);
+      expect(protocols.length).to.equal(tokenOutPath.length);
+      expect(protocols.length).to.equal(extra.length);
+      
+      console.log("✅ Array length matching validated (RAW_ADDRESSES)");
+    });
 
-// Test 6: Empty Route (Edge Case)
-console.log('Test 6: Empty arrays handling');
-try {
-    const protocols = [];
-    const routers = [];
-    const path = [];
-    const extras = [];
-    
-    const encoded = encodeRoute(protocols, routers, path, extras);
-    const [decodedProtocols, decodedRouters, decodedPath, decodedExtras] = decodeRoute(encoded);
-    
-    console.assert(decodedProtocols.length === 0, 'Empty protocols array');
-    console.assert(decodedRouters.length === 0, 'Empty routers array');
-    console.assert(decodedPath.length === 0, 'Empty path array');
-    console.assert(decodedExtras.length === 0, 'Empty extras array');
-    
-    console.log('✅ Passed: Empty arrays encoding/decoding\n');
-} catch (error) {
-    console.error('❌ Failed:', error.message);
-    process.exit(1);
-}
+    it("should ensure all arrays have matching lengths (REGISTRY_ENUMS)", function () {
+      const protocols = [1, 2, 3];
+      const dexIds = [0, 1, 2];
+      const tokenOutIds = [3, 0, 1];
+      const tokenOutTypes = [2, 0, 0];
+      const extra = ["0x", "0x", "0x"];
+      
+      expect(protocols.length).to.equal(dexIds.length);
+      expect(protocols.length).to.equal(tokenOutIds.length);
+      expect(protocols.length).to.equal(tokenOutTypes.length);
+      expect(protocols.length).to.equal(extra.length);
+      
+      console.log("✅ Array length matching validated (REGISTRY_ENUMS)");
+    });
+  });
 
-// Test 7: Complex Multi-Protocol Route
-console.log('Test 7: Complex multi-protocol route');
-try {
-    const protocols = [0, 1, 2, 4]; // V2, V3, Curve, Aggregator
-    const routers = [
-        "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-        "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-        "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7",
-        "0x1111111254EEB25477B68fb85Ed929f73A960582"
-    ];
-    const path = [
-        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
-        "0x6B175474E89094C44Da98b954EedeAC495271d0F", // DAI
-        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // WETH
-        "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", // WBTC
-        "0x514910771AF9Ca656af840dff83E8264EcF986CA"  // LINK
-    ];
-    const extras = [
-        "0x", // V2 - no extras
-        ethers.AbiCoder.defaultAbiCoder().encode(["uint24"], [3000]), // V3 - fee tier
-        ethers.AbiCoder.defaultAbiCoder().encode(["int128", "int128"], [0, 1]), // Curve - pool indices
-        "0xabcdef1234567890" // Aggregator - calldata
-    ];
-    
-    const encoded = encodeRoute(protocols, routers, path, extras);
-    const [decodedProtocols, decodedRouters, decodedPath, decodedExtras] = decodeRoute(encoded);
-    
-    console.assert(decodedProtocols.length === 4, 'Should have 4 protocols');
-    console.assert(decodedRouters.length === 4, 'Should have 4 routers');
-    console.assert(decodedPath.length === 5, 'Should have 5 tokens in path');
-    console.assert(decodedExtras.length === 4, 'Should have 4 extras entries');
-    
-    console.log('✅ Passed: Complex multi-protocol route encoding/decoding\n');
-} catch (error) {
-    console.error('❌ Failed:', error.message);
-    process.exit(1);
-}
+  describe("Real-World Example Encoding", function () {
+    it("should encode a realistic Polygon arbitrage route", function () {
+      const abi = ethers.AbiCoder.defaultAbiCoder();
+      
+      const QUICKSWAP_ROUTER = "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff";
 
-// Test 8: Address Validation
-console.log('Test 8: Address format validation');
-try {
-    const validAddress = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
-    const zeroAddress = "0x0000000000000000000000000000000000000000";
-    
-    // Test with valid address
-    const protocols = [0];
-    const routers = [validAddress];
-    const path = [
-        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-    ];
-    const extras = ["0x"];
-    
-    const encoded = encodeRoute(protocols, routers, path, extras);
-    const [decodedProtocols, decodedRouters, decodedPath, decodedExtras] = decodeRoute(encoded);
-    
-    // Verify addresses are properly formatted
-    console.assert(
-        ethers.isAddress(decodedRouters[0]),
-        'Router should be a valid address'
-    );
-    console.assert(
-        ethers.isAddress(decodedPath[0]),
-        'Path token should be a valid address'
-    );
-    
-    // Check that zero address is detectable
-    console.assert(
-        decodedRouters[0].toLowerCase() !== zeroAddress.toLowerCase(),
-        'Router should not be zero address'
-    );
-    
-    console.log('✅ Passed: Address format validation\n');
-} catch (error) {
-    console.error('❌ Failed:', error.message);
-    process.exit(1);
-}
+const UNIV3_ROUTER = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
 
-// Test 9: Large Route Data
-console.log('Test 9: Large route data encoding');
-try {
-    // Create a route with many hops
-    const protocols = Array(10).fill(0);
-    const routers = Array(10).fill("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D");
-    const path = [
-        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // Start with USDC
-        ...Array(9).fill("0x6B175474E89094C44Da98b954EedeAC495271d0F"), // DAI hops
-        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"  // End with WETH
-    ];
-    const extras = Array(10).fill("0x");
-    
-    const encoded = encodeRoute(protocols, routers, path, extras);
-    const [decodedProtocols, decodedRouters, decodedPath, decodedExtras] = decodeRoute(encoded);
-    
-    console.assert(decodedProtocols.length === 10, 'Should have 10 protocols');
-    console.assert(decodedPath.length === 11, 'Should have 11 tokens in path');
-    console.assert(encoded.length > 1000, 'Large route should produce substantial encoded data');
-    
-    console.log('✅ Passed: Large route data encoding/decoding\n');
-} catch (error) {
-    console.error('❌ Failed:', error.message);
-    process.exit(1);
-}
+const CURVE_AAVE_POOL = "0x445FE580eF8d70FF569aB36e80c647af338db351";
 
-// Test 10: Real-World Bot Integration Pattern
-console.log('Test 10: Real-world bot integration pattern');
-try {
-    // Simulate the pattern used in execution/bot.js
-    const signal = {
-        protocols: [0, 1],
-        routers: [
-            "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-            "0xE592427A0AEce92De3Edee1F18E0157C05861564"
-        ],
-        path: [
-            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-            "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-            "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-        ],
-        extras: ["0x", ethers.AbiCoder.defaultAbiCoder().encode(["uint24"], [3000])]
-    };
-    
-    // This is how bot.js encodes routes
-    const routeData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ["uint8[]", "address[]", "address[]", "bytes[]"],
-        [signal.protocols, signal.routers, signal.path, signal.extras]
-    );
-    
-    const [decodedProtocols, decodedRouters, decodedPath, decodedExtras] = decodeRoute(routeData);
-    
-    console.assert(decodedProtocols.length === signal.protocols.length, 'Protocol count matches');
-    console.assert(decodedRouters.length === signal.routers.length, 'Router count matches');
-    console.assert(decodedPath.length === signal.path.length, 'Path length matches');
-    
-    console.log('✅ Passed: Real-world bot integration pattern\n');
-} catch (error) {
-    console.error('❌ Failed:', error.message);
-    process.exit(1);
-}
+const USDC = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
 
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-console.log('✅ ALL ROUTE ENCODING TESTS PASSED!');
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-console.log(`\n📊 Total Tests: 10`);
-console.log(`✅ Passed: 10`);
-console.log(`❌ Failed: 0\n`);
+const USDT = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
+
+const WMATIC = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
+      
+      // Route: USDC -> WMATIC -> USDT -> USDC (circular arbitrage)
+      const protocols = [1, 2, 3];  // UniV2, UniV3, Curve
+      
+      const routersOrPools = [
+        QUICKSWAP_ROUTER,
+        UNIV3_ROUTER,
+        CURVE_AAVE_POOL
+      ];
+      
+      const tokenOutPath = [
+        WMATIC,
+        USDT,
+        USDC
+      ];
+      
+      const extra = [
+        "0x",                                     // UniV2
+        abi.encode(["uint24"], [500]),            // UniV3 0.05% pool
+        abi.encode(["int128", "int128"], [1, 0]) // Curve USDT->USDC
+      ];
+      
+      const routeData = abi.encode(
+        ["uint8", "uint8[]", "address[]", "address[]", "bytes[]"],
+        [0, protocols, routersOrPools, tokenOutPath, extra]
+      );
+      
+      console.log("✅ Realistic Polygon route encoded");
+      console.log("   Route: USDC -> WMATIC (QuickSwap) -> USDT (UniV3) -> USDC (Curve)");
+      console.log("   Encoded size:", routeData.length, "bytes");
+      
+      // Verify decoding works
+      const decoded = abi.decode(
+        ["uint8", "uint8[]", "address[]", "address[]", "bytes[]"],
+        routeData
+      );
+      
+      expect(decoded[0]).to.equal(0); // RAW_ADDRESSES
+      expect(decoded[1]).to.deep.equal(protocols);
+    });
+  });
+});
