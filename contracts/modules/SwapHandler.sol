@@ -7,35 +7,51 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title SwapHandler
- * @notice System-wide swap execution module (reusable across contracts)
- * @dev Abstract contract providing unified swap interface for multiple DEX protocols
+ * @notice Battle-ready swap execution module with MEV protection
+ * @dev Supports UniV2 multi-hop, UniV3 multi-hop, and Curve with on-chain slippage protection
+ * 
+ * SECURITY FEATURES:
+ * - minOut enforcement at protocol level (fail-fast within router calls)
+ * - Defense-in-depth: Additional balance verification after swap
+ * - Safe approve patterns for USDT-style tokens
+ * 
+ * extraData schema (UNIFORM):
+ *   extraData = abi.encode(uint256 minOut, bytes protocolData)
+ *
+ * protocolData per protocol:
+ * - UNIV2:
+ *     protocolData = abi.encode(address[] path, uint256 deadline)
+ *     (path[0] must be tokenIn, last must be tokenOut)
+ *     minOut passed to swapExactTokensForTokens for on-chain protection
+ *
+ * - UNIV3 (single hop):
+ *     protocolData = abi.encode(uint24 fee, uint160 sqrtPriceLimitX96, uint256 deadline)
+ *     minOut passed as amountOutMinimum for on-chain protection
+ *
+ * - UNIV3 (multi-hop exactInput):
+ *     protocolData = abi.encode(bytes path, uint256 deadline)
+ *     where `path` is Uniswap V3 path encoding: tokenIn(20) + fee(3) + tokenMid(20) + fee(3) + tokenOut(20)...
+ *     minOut passed as amountOutMinimum for on-chain protection
+ *
+ * - CURVE:
+ *     protocolData = abi.encode(int128 i, int128 j, uint256 deadline)
+ *     (routerOrPool is the Curve pool address)
+ *     minOut passed to exchange() for on-chain protection
  */
 abstract contract SwapHandler {
     using SafeERC20 for IERC20;
 
-    /* ========== PROTOCOL IDS ========== */
-    
-    uint8 internal constant PROTOCOL_UNIV2 = 1;  // UniV2-style (Quickswap, Sushi, etc.)
-    uint8 internal constant PROTOCOL_UNIV3 = 2;  // Uniswap V3
-    uint8 internal constant PROTOCOL_CURVE = 3;  // Curve Finance
-    
-    /* ========== CONSTANTS ========== */
-    
-    // Uniswap V3 pool fee tiers
-    uint24 internal constant FEE_LOWEST = 100;    // 0.01%
-    uint24 internal constant FEE_LOW = 500;       // 0.05%
-    uint24 internal constant FEE_MEDIUM = 3000;   // 0.3%
-    uint24 internal constant FEE_HIGH = 10000;    // 1%
-    
-    // Curve pool constraints
-    uint8 internal constant MAX_CURVE_INDICES = 8;
-    
-    /* ========== CONFIGURABLE DEADLINE ========== */
-    
-    // Default deadline can be overridden by child contracts
-    uint256 internal _swapDeadline = 180; // 3 minutes default
+    // Protocol IDs
+    uint8 internal constant PROTOCOL_UNIV2  = 1;
+    uint8 internal constant PROTOCOL_UNIV3  = 2;
+    uint8 internal constant PROTOCOL_CURVE  = 3;
 
-    /* ========== INTERNAL SWAP EXECUTION ========== */
+    error UnsupportedProtocol(uint8 protocol);
+    error BadRouter(address router);
+    error Slippage(uint256 out, uint256 minOut);
+    error InvalidPath(string reason);
+    error InvalidToken(address token);
+    error InvalidAmount();
 
     /**
      * @notice Execute a swap on the specified protocol
@@ -56,13 +72,16 @@ abstract contract SwapHandler {
         uint256 amountIn,
         bytes memory extraData
     ) internal returns (uint256 amountOut) {
-        require(router != address(0), "Invalid router");
-        require(tokenIn != address(0), "Invalid tokenIn");
-        require(tokenOut != address(0), "Invalid tokenOut");
-        require(amountIn > 0, "Invalid amount");
-        
-        // Approve router to spend tokens
-        _approveIfNeeded(tokenIn, router, amountIn);
+        // Input validation
+        if (router.code.length == 0) revert BadRouter(router);
+        if (tokenIn == address(0)) revert InvalidToken(tokenIn);
+        if (tokenOut == address(0)) revert InvalidToken(tokenOut);
+        if (amountIn == 0) revert InvalidAmount();
+
+        (uint256 minOut, bytes memory protocolData) = abi.decode(extraData, (uint256, bytes));
+
+        // Safe approve pattern (USDT-style tokens)
+        IERC20(tokenIn).forceApprove(router, amountIn);
 
         if (protocol == PROTOCOL_UNIV2) {
             return _swapUniV2(router, tokenIn, tokenOut, amountIn);

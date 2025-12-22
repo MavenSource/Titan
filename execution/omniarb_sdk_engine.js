@@ -54,15 +54,37 @@ class OmniSDKEngine {
 
     /**
      * Returns the correct Uniswap V3 Quoter address for the chain.
+     * Fails closed if quoter address is not available for the chain.
+     * 
+     * Reference: Uniswap V3 official deployment addresses
+     * https://docs.uniswap.org/contracts/v3/reference/deployments
      */
     _getV3QuoterAddress(chainId) {
-        const map = {
-            1: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e", // Mainnet
-            137: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e", // Polygon
-            42161: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e", // Arbitrum
-            10: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e" // Optimism
+        const QUOTER_V2_BY_CHAINID = {
+            1: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",      // Ethereum Mainnet
+            137: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",    // Polygon
+            42161: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",  // Arbitrum One
+            10: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",     // Optimism
+            8453: "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",   // Base
+            56: "0x78D78E420Da98ad378D7799bE8f4AF69033EB077",    // BNB Smart Chain
+            43114: "0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F", // Avalanche C-Chain
+            // Fantom (250): QuoterV2 address not officially verified - excluded for security
+            42220: "0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8",   // Celo
+            324: "0x3d146FcE6c1006857750cBe8aF44f76a28041CCc",    // zkSync Era
+            81457: "0x6Cdcd65e03c1CEc3730AeeCd45bc140D57A25C77"   // Blast
+            // Note: Chains without official Uniswap V3 deployment are excluded:
+            // - Fantom (250): Cannot verify if official Uniswap V3 or fork
+            // - Linea (59144): No official Uniswap V3 deployment verified
+            // - Scroll (534352): No official Uniswap V3 deployment verified  
+            // - Mantle (5000): No official Uniswap V3 deployment verified
+            // - opBNB (204): No official Uniswap V3 deployment verified
         };
-        return map[chainId] || "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"; // Default
+        
+        const quoterAddress = QUOTER_V2_BY_CHAINID[chainId];
+        if (!quoterAddress) {
+            throw new Error(`QuoterV2 not available for chainId ${chainId}. Cannot provide accurate quotes.`);
+        }
+        return quoterAddress;
     }
 
     // ============================================================================

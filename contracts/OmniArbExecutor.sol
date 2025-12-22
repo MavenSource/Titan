@@ -338,20 +338,40 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
     
     /**
      * @notice Balancer V3 unlock callback
+     * @dev Security features:
+     *      - Caller verification: Only BALANCER_VAULT can call
+     *      - Profit calculation relative to startBal: Prevents pre-existing balance masking losses
+     *      - Explicit feeHint parameter: No hidden fee changes
+     *      - Correct B3 repayment: transfer + settle (NOT approve)
      */
-    function onBalancerUnlock(bytes calldata data) external returns (bytes memory) {
-        require(msg.sender == address(BALANCER_VAULT), "Unauthorized");
-        
-        (address token, uint256 amount, bytes memory routeData) = abi.decode(
-            data,
-            (address, uint256, bytes)
-        );
+    function onBalancerUnlock(bytes calldata callbackData) external returns (bytes memory) {
+        require(msg.sender == address(BALANCER_VAULT), "B3: bad caller");
+
+        (address loanToken, uint256 loanAmount, uint256 minProfitToken, uint256 feeHint, bytes memory routeData) =
+            abi.decode(callbackData, (address, uint256, uint256, uint256, bytes));
+
+        // Borrow inside unlocked context
+        BALANCER_VAULT.sendTo(IERC20(loanToken), address(this), loanAmount);
+
+        uint256 startBal = IERC20(loanToken).balanceOf(address(this));
+
+        // Execute route
+        uint256 finalAmount = _runRoute(loanToken, loanAmount, routeData);
+
+        uint256 endBal = IERC20(loanToken).balanceOf(address(this));
+
+        // Profit calculation relative to starting balance (security: prevents balance masking)
+        // pnl = endBal - startBal - feeHint (loan principal cancels out)
+        int256 pnl = int256(endBal) - int256(startBal) - int256(feeHint);
+        require(pnl >= int256(minProfitToken), "MIN_PROFIT");
 
         // A. Take debt (V3 specific)
         BALANCER_VAULT.sendTo(IERC20(token), address(this), amount);
 
-        // B. Execute arbitrage route
-        uint256 finalAmount = _runRoute(token, amount, routeData);
+        // Balancer V3 repayment: transfer to Vault, then settle to clear debt
+        // (NOT approve - approve doesn't work with B3's transient accounting)
+        IERC20(loanToken).safeTransfer(address(BALANCER_VAULT), repayAmount);
+        BALANCER_VAULT.settle(IERC20(loanToken), repayAmount);
 
         // Validate profitability before repayment
         require(finalAmount >= amount, "Insufficient return");
@@ -369,7 +389,12 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
     }
 
     /**
-     * @notice Aave V3 flash loan callback
+     * @notice Aave V3 flashloan callback
+     * @dev Security features:
+     *      - Caller verification: Only AAVE_POOL can call
+     *      - Initiator verification: Only this contract can initiate (prevents unauthorized flashloans)
+     *      - Profit calculation relative to startBal: Prevents pre-existing balance masking losses
+     *      - Dynamic premium reading: Adapts to governance fee changes
      */
     function executeOperation(
         address asset,
@@ -385,6 +410,11 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
 
         // Approve repayment (loan + premium)
         uint256 owed = amount + premium;
+
+        // Profit calculation relative to starting balance (security: prevents balance masking)
+        // Note: startBal already includes borrowed amount, so real pnl = endBal - startBal - premium
+        int256 pnl = int256(endBal) - int256(startBal) - int256(premium);
+        require(pnl >= int256(minProfitToken), "MIN_PROFIT");
         
         // Validate profitability before repayment
         require(finalAmount >= owed, "Insufficient return");
