@@ -11,8 +11,6 @@ let lastInitAttemptTime = null;
 let initAttemptCount = 0;
 
 // Retry configuration
-const RETRY_DELAY_MS = 5000; // Initial retry delay: 5 seconds
-const MAX_RETRY_DELAY_MS = 60000; // Max retry delay: 60 seconds
 const RETRY_TIMEOUT_MS = 300000; // Allow retries after 5 minutes of last failed attempt
 
 /**
@@ -34,7 +32,7 @@ const RETRY_TIMEOUT_MS = 300000; // Allow retries after 5 minutes of last failed
  * **How errors are handled:**
  * - Errors are caught and stored in `sdkInitializationError`
  * - Failed initialization can be retried after a timeout period
- * - Exponential backoff prevents excessive retry attempts
+ * - Retry attempts are tracked to monitor initialization health
  * - Race conditions are prevented by using a promise-based lock
  * 
  * **State variables modified:**
