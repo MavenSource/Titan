@@ -1,7 +1,7 @@
 # Titan System Comparison Report
 ## 90-Day Historical Simulation Results
 
-**Generated:** 2025-12-13 21:11:55
+**Generated:** 2025-12-22 03:20:24
 
 ---
 
@@ -27,17 +27,17 @@
 
 ### Performance Metrics
 - **Simulation Period:** 90 days
-- **Total Opportunities:** 672
-- **Executed Trades:** 429
-- **Successful Trades:** 368
-- **Success Rate:** 85.8%
+- **Total Opportunities:** 8,640
+- **Executed Trades:** 4,887
+- **Successful Trades:** 4,273
+- **Success Rate:** 87.4%
 
 ### Financial Performance
-- **Total Profit:** $103,513.56
-- **Total Gas Cost:** $198,300.96
-- **Net Profit:** $-94,787.40
-- **Average Daily Profit:** $1,150.15
-- **Average Per Trade:** $281.29
+- **Total Profit:** $977,834.46
+- **Total Gas Cost:** $2,606,877.00
+- **Net Profit:** $-1,629,042.54
+- **Average Daily Profit:** $10,864.83
+- **Average Per Trade:** $228.84
 
 ---
 
