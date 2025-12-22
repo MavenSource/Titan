@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+onchain/node_modules/
+offchain/executor/node_modules/
 .pnp
 .pnp.js
 .pnp.cjs
@@ -32,17 +34,28 @@ MANIFEST
 venv/
 ENV/
 env/
+offchain/brain/**/__pycache__/
 
 # Hardhat
 cache/
 artifacts/
+onchain/cache/
+onchain/artifacts/
 typechain/
 typechain-types/
+
+# Shared
+shared/abi/
 
 # Environment
 .env
 .env.local
 .env.*.local
+offchain/.env
+
+# Signals (runtime generated)
+shared/signals/outgoing/*.json
+shared/signals/processed/*.json
 
 # IDE
 .vscode/

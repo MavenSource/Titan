@@ -1,6 +1,22 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv()
+
+# Load environment variables from offchain directory
+ENV_PATH = Path(__file__).parent.parent / ".env"
+load_dotenv(ENV_PATH)
+
+# Shared directory paths
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+SHARED_DIR = PROJECT_ROOT / "shared"
+SIGNALS_OUTGOING = SHARED_DIR / "signals" / "outgoing"
+SIGNALS_PROCESSED = SHARED_DIR / "signals" / "processed"
+ABI_DIR = SHARED_DIR / "abi"
+
+# Ensure directories exist
+SIGNALS_OUTGOING.mkdir(parents=True, exist_ok=True)
+SIGNALS_PROCESSED.mkdir(parents=True, exist_ok=True)
+ABI_DIR.mkdir(parents=True, exist_ok=True)
 
 # V3 Vault is deterministic (Same addr on all chains)
 BALANCER_V3_VAULT = "0xbA1333333333a1BA1108E8412f11850A5C319bA9"

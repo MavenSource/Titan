@@ -316,6 +316,57 @@ The Titan system follows a modular, event-driven architecture with three primary
 
 ---
 
+## 📁 Project Structure
+
+This repository is organized into three main directories for clear separation of concerns:
+
+```
+MavenSource/Titan/
+├── onchain/                    # ✅ ALL on-chain Solidity logic
+│   ├── contracts/              # Smart contracts and interfaces
+│   ├── scripts/                # Deployment and utility scripts
+│   ├── test/                   # Contract tests
+│   ├── hardhat.config.js       # Hardhat configuration
+│   ├── package.json            # Node.js dependencies
+│   └── README.md               # On-chain documentation
+│
+├── offchain/                   # ✅ ALL off-chain logic
+│   ├── .env                    # Environment configuration
+│   ├── brain/                  # Python arbitrage detection
+│   │   ├── ml/                 # Machine learning models
+│   │   ├── core/               # Core configuration
+│   │   ├── routing/            # Bridge aggregation
+│   │   ├── simulation/         # Backtesting engine
+│   │   └── requirements.txt    # Python dependencies
+│   │
+│   ├── executor/               # JavaScript execution engine
+│   │   ├── execution/          # Trade execution bot
+│   │   ├── monitoring/         # MEV metrics
+│   │   └── package.json        # Node.js dependencies
+│   │
+│   └── README.md               # Off-chain documentation
+│
+├── shared/                     # 🔗 Integration layer
+│   ├── signals/                # IPC for brain → executor
+│   │   ├── outgoing/           # New signals from brain
+│   │   └── processed/          # Completed signals
+│   ├── abi/                    # Generated contract ABIs
+│   ├── config/                 # Shared configuration
+│   └── README.md               # Integration documentation
+│
+└── README.md                   # This file
+```
+
+### Directory Purposes
+
+- **`onchain/`** - Contains all Solidity smart contracts, deployment scripts, and Hardhat configuration. This code runs on the blockchain.
+- **`offchain/`** - Contains all Python (ML brain) and JavaScript (execution engine) code. This code runs on your servers.
+- **`shared/`** - Integration layer for communication between components. Signals flow from brain to executor through this directory.
+
+See individual README files in each directory for detailed setup and usage instructions.
+
+---
+
 ## 🛠️ Technology Stack
 
 ### Backend

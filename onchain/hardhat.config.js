@@ -1,5 +1,5 @@
 // require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config();
+require("dotenv").config({ path: "../offchain/.env" });
 
 // Helper function to get accounts array (empty if no valid private key)
 const getAccounts = () => {
@@ -21,6 +21,12 @@ module.exports = {
       },
       viaIR: true, // Important for complex arbitrage contracts
     },
+  },
+  paths: {
+    sources: "./contracts",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts"
   },
   networks: {
     hardhat: {

@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: '../../.env' });
 const { ethers } = require('ethers');
 const fs = require('fs');
 const path = require('path');
@@ -8,8 +8,13 @@ const { AggregatorSelector } = require('./aggregator_selector');
 const { OmniSDKEngine } = require('./omniarb_sdk_engine');
 const { LifiExecutionEngine } = require('./lifi_manager');
 
-const SIGNALS_DIR = path.join(__dirname, '..', 'signals', 'outgoing');
-const PROCESSED_DIR = path.join(__dirname, '..', 'signals', 'processed');
+// Shared directory paths
+const PROJECT_ROOT = path.join(__dirname, '..', '..', '..');
+const SHARED_DIR = path.join(PROJECT_ROOT, 'shared');
+const SIGNALS_DIR = path.join(SHARED_DIR, 'signals', 'outgoing');
+const PROCESSED_DIR = path.join(SHARED_DIR, 'signals', 'processed');
+const ABI_DIR = path.join(SHARED_DIR, 'abi');
+
 const EXECUTOR_ADDR = process.env.EXECUTOR_ADDRESS;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 // TITAN_EXECUTION_MODE takes precedence (set by orchestrator), fallback to EXECUTION_MODE (.env)
