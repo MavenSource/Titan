@@ -65,7 +65,32 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
     // tokenRegistry[chainId][tokenId][tokenType] = token address
     mapping(uint256 => mapping(uint8 => mapping(uint8 => address))) public tokenRegistry;
 
-    // ========= EVENTS =========
+    // ============================================
+    // EVENTS
+    // ============================================
+
+    event RouteExecuted(
+        address indexed loanToken,
+        uint256 loanAmount,
+        uint256 finalAmount,
+        uint256 profit
+    );
+
+    event ExecutedDetailed(
+        FlashSource indexed source,
+        address indexed asset,
+        uint256 amountBorrowed,
+        uint256 feeOrPremium,
+        uint256 repayAmount,
+        uint256 startBalance,
+        uint256 endBalance,
+        int256 pnl,
+        uint256 minProfit,
+        bytes32 routeHash
+    );
+
+    event DexRouterSet(uint256 indexed chainId, uint8 indexed dexId, address router);
+    event TokenSet(uint256 indexed chainId, uint8 indexed tokenId, uint8 indexed tokenType, address token, bool enabled);
 
     event DexRouterSet(uint256 indexed chainId, Dex indexed dex, address router);
     event TokenSet(uint256 indexed chainId, TokenId indexed tokenId, TokenType indexed tokenType, address token);
@@ -84,33 +109,62 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
         emit DexRouterSet(chainId, dex, router);
     }
 
-    function setToken(uint256 chainId, TokenId tokenId, TokenType tokenType, address token) external onlyOwner {
-        tokenRegistry[chainId][uint8(tokenId)][uint8(tokenType)] = token;
-        emit TokenSet(chainId, tokenId, tokenType, token);
+    /**
+     * @notice Register a DEX router for a specific chain
+     */
+    function setDexRouter(uint256 chainId, uint8 dexId, address router) external onlyOwner {
+        require(router != address(0), "Invalid router");
+        require(router.code.length > 0, "Router not contract");
+        dexRouter[chainId][dexId] = router;
+        emit DexRouterSet(chainId, dexId, router);
     }
 
-    function resolveDex(uint256 chainId, Dex dex) public view returns (address router) {
-        router = dexRouter[chainId][uint8(dex)];
-        require(router != address(0), "dex not set");
+    /**
+     * @notice Register a token for a specific chain, token ID, and token type
+     */
+    function setToken(uint256 chainId, uint8 tokenId, uint8 tokenType, address token) external onlyOwner {
+        require(token != address(0), "Invalid token");
+        require(token.code.length > 0, "Token not contract");
+        tokenRegistry[chainId][tokenId][tokenType] = token;
+        emit TokenSet(chainId, tokenId, tokenType, token, true);
     }
 
-    function resolveToken(uint256 chainId, TokenId tokenId, TokenType preferred) public view returns (address token) {
-        token = tokenRegistry[chainId][uint8(tokenId)][uint8(preferred)];
-        if (token != address(0)) return token;
-
-        // fallback canonical <-> bridged
-        if (preferred == TokenType.CANONICAL) {
-            token = tokenRegistry[chainId][uint8(tokenId)][uint8(TokenType.BRIDGED)];
-            if (token != address(0)) return token;
-        } else if (preferred == TokenType.BRIDGED) {
-            token = tokenRegistry[chainId][uint8(tokenId)][uint8(TokenType.CANONICAL)];
-            if (token != address(0)) return token;
+    /**
+     * @notice Batch register multiple DEX routers
+     */
+    function batchSetDexRouters(
+        uint256[] calldata chainIds,
+        uint8[] calldata dexIds,
+        address[] calldata routers
+    ) external onlyOwner {
+        require(chainIds.length == dexIds.length && dexIds.length == routers.length, "Length mismatch");
+        for (uint i = 0; i < chainIds.length; i++) {
+            require(routers[i] != address(0), "Invalid router");
+            require(routers[i].code.length > 0, "Router not contract");
+            dexRouter[chainIds[i]][dexIds[i]] = routers[i];
+            emit DexRouterSet(chainIds[i], dexIds[i], routers[i]);
         }
 
-        // WNATIVE fallback to WRAPPED
-        if (tokenId == TokenId.WNATIVE) {
-            token = tokenRegistry[chainId][uint8(tokenId)][uint8(TokenType.WRAPPED)];
-            if (token != address(0)) return token;
+    /**
+     * @notice Batch register multiple tokens
+     */
+    function batchSetTokens(
+        uint256[] calldata chainIds,
+        uint8[] calldata tokenIds,
+        uint8[] calldata tokenTypes,
+        address[] calldata tokens
+    ) external onlyOwner {
+        require(
+            chainIds.length == tokenIds.length && 
+            tokenIds.length == tokenTypes.length && 
+            tokenTypes.length == tokens.length,
+            "Length mismatch"
+        );
+        for (uint i = 0; i < chainIds.length; i++) {
+            require(tokens[i] != address(0), "Invalid token");
+            require(tokens[i].code.length > 0, "Token not contract");
+            tokenRegistry[chainIds[i]][tokenIds[i]][tokenTypes[i]] = tokens[i];
+            emit TokenSet(chainIds[i], tokenIds[i], tokenTypes[i], tokens[i], true);
         }
 
         revert("token not set");
@@ -125,33 +179,83 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
      * @param flashSource Flash loan source (AaveV3=0, BalancerV3=1)
      * @param loanToken Token to borrow
      * @param loanAmount Amount to borrow
+     * @param minProfitToken Minimum profit required in loanToken units
+     * @param balancerFeeHint Balancer fee hint (typically 0, but explicit)
      * @param routeData Encoded route (RAW_ADDRESSES or REGISTRY_ENUMS)
      */
     function execute(
         FlashSource flashSource,
         address loanToken,
         uint256 loanAmount,
+        uint256 minProfitToken,
+        uint256 balancerFeeHint,
         bytes calldata routeData
     ) external onlyOwner {
         if (flashSource == FlashSource.AaveV3) {
-            // Aave V3: Standard flashloan
-            AAVE_POOL.flashLoanSimple(address(this), loanToken, loanAmount, routeData, 0);
+            // Aave V3: Standard flashloan - encode minProfit into routeData wrapper
+            bytes memory callbackData = abi.encode(minProfitToken, routeData);
+            AAVE_POOL.flashLoanSimple(address(this), loanToken, loanAmount, callbackData, 0);
         } else if (flashSource == FlashSource.BalancerV3) {
             // Balancer V3: Unlock pattern
-            bytes memory callbackData = abi.encode(loanToken, loanAmount, routeData);
-            BALANCER_VAULT.unlock(abi.encodeWithSelector(this.onBalancerUnlock.selector, callbackData));
+            bytes memory callbackData = abi.encode(loanToken, loanAmount, minProfitToken, balancerFeeHint, routeData);
+            BALANCER_VAULT.unlock(abi.encodeCall(this.onBalancerUnlock, (callbackData)));
         } else {
             revert("Invalid flash source");
         }
+    }
 
-        if (source == FlashSource.BalancerV3) {
-            bytes memory payload = abi.encode(loanToken, loanAmount, routeData);
-            bytes memory callData = abi.encodeWithSelector(this.onBalancerUnlock.selector, payload);
-            BALANCER_VAULT.unlock(callData);
-            return;
-        }
+    // ============================================
+    // FLASHLOAN CALLBACKS
+    // ============================================
 
-        revert("bad source");
+    /**
+     * @notice Balancer V3 unlock callback
+     */
+    function onBalancerUnlock(bytes calldata callbackData) external returns (bytes memory) {
+        require(msg.sender == address(BALANCER_VAULT), "B3: bad caller");
+
+        (address loanToken, uint256 loanAmount, uint256 minProfitToken, uint256 feeHint, bytes memory routeData) =
+            abi.decode(callbackData, (address, uint256, uint256, uint256, bytes));
+
+        // Borrow inside unlocked context
+        BALANCER_VAULT.sendTo(IERC20(loanToken), address(this), loanAmount);
+
+        uint256 startBal = IERC20(loanToken).balanceOf(address(this));
+
+        // Execute route
+        uint256 finalAmount = _runRoute(loanToken, loanAmount, routeData);
+
+        uint256 endBal = IERC20(loanToken).balanceOf(address(this));
+
+        // Profit calculation: endBal - startBal - feeHint
+        int256 pnl = int256(endBal) - int256(startBal) - int256(feeHint);
+        require(pnl >= int256(minProfitToken), "MIN_PROFIT");
+
+        // Repay debt: loanAmount + feeHint
+        uint256 repayAmount = loanAmount + feeHint;
+        require(endBal >= repayAmount, "B3: insufficient repay");
+
+        // Transfer to Vault, then settle (NOT approve)
+        IERC20(loanToken).safeTransfer(address(BALANCER_VAULT), repayAmount);
+        BALANCER_VAULT.settle(IERC20(loanToken), repayAmount);
+
+        emit ExecutedDetailed(
+            FlashSource.BalancerV3,
+            loanToken,
+            loanAmount,
+            feeHint,
+            repayAmount,
+            startBal,
+            endBal,
+            pnl,
+            minProfitToken,
+            keccak256(routeData)
+        );
+
+        // RouteExecuted expects uint256 profit, only emit if profitable
+        emit RouteExecuted(loanToken, loanAmount, finalAmount, pnl >= 0 ? uint256(pnl) : 0);
+        
+        return "";
     }
 
     // ========= AAVE CALLBACK =========
@@ -160,21 +264,48 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
         address asset,
         uint256 amount,
         uint256 premium,
-        address,
+        address initiator,
         bytes calldata params
     ) external override returns (bool) {
-        require(msg.sender == address(AAVE_POOL), "Unauthorized: caller is not Aave pool");
+        require(msg.sender == address(AAVE_POOL), "AAVE: bad caller");
+        require(initiator == address(this), "AAVE: bad initiator");
 
-        uint256 startBal = IERC20(asset).balanceOf(address(this));
-        _runRoute(asset, amount, params);
-
-        uint256 owed = amount + premium;
-        require(finalAmount >= owed, "Insufficient return");
+        // Decode minProfit and routeData
+        (uint256 minProfitToken, bytes memory routeData) = abi.decode(params, (uint256, bytes));
         
-        IERC20(asset).forceApprove(address(AAVE_POOL), owed);
+        uint256 startBal = IERC20(asset).balanceOf(address(this));
+        
+        uint256 finalAmount = _runRoute(asset, amount, routeData);
 
         uint256 endBal = IERC20(asset).balanceOf(address(this));
-        emit Executed(FlashSource.AaveV3, asset, amount, endBal, int256(endBal) - int256(startBal));
+
+        uint256 owed = amount + premium;
+
+        // Profit calculation: endBal - startBal - premium
+        // Note: startBal already includes borrowed amount
+        int256 pnl = int256(endBal) - int256(startBal) - int256(premium);
+        require(pnl >= int256(minProfitToken), "MIN_PROFIT");
+        
+        require(endBal >= owed, "AAVE: insufficient return");
+        
+        IERC20(asset).safeIncreaseAllowance(address(AAVE_POOL), owed);
+
+        emit ExecutedDetailed(
+            FlashSource.AaveV3,
+            asset,
+            amount,
+            premium,
+            owed,
+            startBal,
+            endBal,
+            pnl,
+            minProfitToken,
+            keccak256(routeData)
+        );
+
+        // RouteExecuted expects uint256 profit, only emit if profitable
+        emit RouteExecuted(asset, amount, finalAmount, pnl >= 0 ? uint256(pnl) : 0);
+        
         return true;
     }
 
@@ -190,7 +321,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
     ) internal returns (uint256) {
         
         (
-            RouteEncoding enc,
+            ,  // RouteEncoding enc - not used after decode
             uint8[] memory protocols,
             address[] memory routersOrPools,
             address[] memory tokenOutPath,
@@ -231,7 +362,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
     ) internal returns (uint256) {
         
         (
-            RouteEncoding enc,
+            ,  // RouteEncoding enc - not used after decode
             uint8[] memory protocols,
             uint8[] memory dexIds,
             uint8[] memory tokenOutIds,
