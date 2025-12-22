@@ -257,7 +257,7 @@ contract OmniArbExecutor is Ownable, SwapHandler, IAaveFlashLoanSimpleReceiver {
         uint256 owed = amount + premium;
         require(finalAmount >= owed, "Insufficient return");
         
-        SafeERC20.forceApprove(IERC20(asset), address(AAVE_POOL), owed);
+        IERC20(asset).safeIncreaseAllowance(address(AAVE_POOL), owed);
 
         emit RouteExecuted(asset, amount, finalAmount, finalAmount - owed);
         

@@ -39,8 +39,8 @@ abstract contract SwapHandler {
         bytes memory extraData
     ) internal returns (uint256 amountOut) {
         
-        // Safe approval - set exact allowance for the swap
-        SafeERC20.forceApprove(IERC20(tokenIn), routerOrPool, amountIn);
+        // Safe approval - use safeIncreaseAllowance for OpenZeppelin v5
+        IERC20(tokenIn).safeIncreaseAllowance(routerOrPool, amountIn);
 
         if (protocol == PROTOCOL_UNIV2) {
             // UniV2-style swap (Quickswap, Sushi, etc.)
