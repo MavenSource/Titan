@@ -3,7 +3,15 @@ import { Dex, TokenId, TokenType } from "../src/encoding/titanEnums";
 
 async function main() {
   const EX = process.env.EXECUTOR!;
-  const chainId = (await ethers.provider.getNetwork()).chainId;
+  const network = await ethers.provider.getNetwork();
+  const chainId = network.chainId;
+  const expectedChainId = process.env.CHAIN_ID;
+  if (!expectedChainId) {
+    throw new Error("Environment variable CHAIN_ID must be set to the expected network chain ID before seeding.");
+  }
+  if (chainId.toString() !== expectedChainId) {
+    throw new Error(`Connected chainId ${chainId.toString()} does not match expected CHAIN_ID ${expectedChainId}. Aborting seeding.`);
+  }
 
   const ex = await ethers.getContractAt("OmniArbExecutor", EX);
 
