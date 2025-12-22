@@ -10,13 +10,45 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IAaveFlashLoanSimpleReceiver {
-    using SafeERC20 for IERC20;
+    /**
+     * @notice Flash loan source providers
+     */
+    enum FlashSource {
+        AaveV3,       // 0: Aave V3 flashLoanSimple
+        BalancerV3    // 1: Balancer V3 unlock pattern
+    }
 
-    // ========= ENUMS (LOCK ORDER — APPEND ONLY) =========
+    /**
+     * @notice Route encoding format
+     */
+    enum RouteEncoding {
+        RAW_ADDRESSES,    // 0: Explicit router + token addresses
+        REGISTRY_ENUMS    // 1: DEX + Token enums resolved on-chain
+    }
 
-    enum FlashSource { AaveV3, BalancerV3 }                // 0,1
-    enum RouteEncoding { RAW_ADDRESSES, REGISTRY_ENUMS }   // 0,1
+    /**
+     * @notice DEX identifiers for registry-based routing
+     */
+    enum Dex {
+        UniV2,        // 0: UniswapV2-style (Quickswap, Sushiswap, etc.)
+        UniV3,        // 1: Uniswap V3
+        Curve,        // 2: Curve pools
+        Balancer,     // 3: Balancer
+        Dodo,         // 4: Dodo
+        Unknown       // 5: Unknown/Other DEX
+    }
+
+    /**
+     * @notice Token identifiers for registry-based routing
+     */
+    enum TokenId {
+        WNATIVE,      // 0: Wrapped native token (WETH, WMATIC, etc.)
+        USDC,         // 1: USD Coin
+        USDT,         // 2: Tether USD
+        DAI,          // 3: Dai Stablecoin
+        WETH,         // 4: Wrapped Ether
+        WBTC          // 5: Wrapped Bitcoin
+    }
 
     enum Dex { UniV2, UniV3, Curve, Balancer, Dodo, Unknown } // 0..5
     enum TokenType { CANONICAL, BRIDGED, WRAPPED }            // 0..2
@@ -84,20 +116,32 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IAaveFlashLoa
         revert("token not set");
     }
 
-    // ========= ENTRYPOINT =========
+    // ============================================
+    // EXECUTION TRIGGER
+    // ============================================
 
+    /**
+     * @notice Execute arbitrage with flashloan
+     * @param flashSource Flash loan source (AaveV3=0, BalancerV3=1)
+     * @param loanToken Token to borrow
+     * @param loanAmount Amount to borrow
+     * @param routeData Encoded route (RAW_ADDRESSES or REGISTRY_ENUMS)
+     */
     function execute(
-        FlashSource source,
+        FlashSource flashSource,
         address loanToken,
         uint256 loanAmount,
         bytes calldata routeData
-    ) external onlyOwner nonReentrant {
-        require(loanToken != address(0), "loanToken=0");
-        require(loanAmount > 0, "loanAmount=0");
-
-        if (source == FlashSource.AaveV3) {
+    ) external onlyOwner {
+        if (flashSource == FlashSource.AaveV3) {
+            // Aave V3: Standard flashloan
             AAVE_POOL.flashLoanSimple(address(this), loanToken, loanAmount, routeData, 0);
-            return;
+        } else if (flashSource == FlashSource.BalancerV3) {
+            // Balancer V3: Unlock pattern
+            bytes memory callbackData = abi.encode(loanToken, loanAmount, routeData);
+            BALANCER_VAULT.unlock(abi.encodeWithSelector(this.onBalancerUnlock.selector, callbackData));
+        } else {
+            revert("Invalid flash source");
         }
 
         if (source == FlashSource.BalancerV3) {
@@ -125,6 +169,8 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IAaveFlashLoa
         _runRoute(asset, amount, params);
 
         uint256 owed = amount + premium;
+        require(finalAmount >= owed, "Insufficient return");
+        
         IERC20(asset).forceApprove(address(AAVE_POOL), owed);
 
         uint256 endBal = IERC20(asset).balanceOf(address(this));
@@ -134,8 +180,28 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IAaveFlashLoa
 
     // ========= BALANCER CALLBACK =========
 
-    function onBalancerUnlock(bytes calldata data) external returns (bytes memory) {
-        require(msg.sender == address(BALANCER_VAULT), "Balancer: auth");
+    /**
+     * @notice Execute route with RAW_ADDRESSES encoding
+     */
+    function _runRouteRaw(
+        address inputToken,
+        uint256 inputAmount,
+        bytes memory routeData
+    ) internal returns (uint256) {
+        
+        (
+            RouteEncoding enc,
+            uint8[] memory protocols,
+            address[] memory routersOrPools,
+            address[] memory tokenOutPath,
+            bytes[] memory extra
+        ) = abi.decode(routeData, (RouteEncoding, uint8[], address[], address[], bytes[]));
+
+        // Validate lengths
+        require(protocols.length == routersOrPools.length, "len mismatch");
+        require(protocols.length == tokenOutPath.length, "len mismatch");
+        require(protocols.length == extra.length, "len mismatch");
+        require(protocols.length > 0 && protocols.length <= 5, "Invalid route length");
 
         (address loanToken, uint256 loanAmount, bytes memory routeData) =
             abi.decode(data, (address, uint256, bytes));
@@ -155,10 +221,30 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IAaveFlashLoa
         return bytes("");
     }
 
-    // ========= ROUTE ENGINE =========
+    /**
+     * @notice Execute route with REGISTRY_ENUMS encoding
+     */
+    function _runRouteRegistry(
+        address inputToken,
+        uint256 inputAmount,
+        bytes memory routeData
+    ) internal returns (uint256) {
+        
+        (
+            RouteEncoding enc,
+            uint8[] memory protocols,
+            uint8[] memory dexIds,
+            uint8[] memory tokenOutIds,
+            uint8[] memory tokenOutTypes,
+            bytes[] memory extra
+        ) = abi.decode(routeData, (RouteEncoding, uint8[], uint8[], uint8[], uint8[], bytes[]));
 
-    function _runRoute(address inputToken, uint256 inputAmount, bytes memory routeData) internal {
-        require(IERC20(inputToken).balanceOf(address(this)) >= inputAmount, "route: insufficient input");
+        // Validate lengths
+        require(protocols.length == dexIds.length, "len mismatch");
+        require(protocols.length == tokenOutIds.length, "len mismatch");
+        require(protocols.length == tokenOutTypes.length, "len mismatch");
+        require(protocols.length == extra.length, "len mismatch");
+        require(protocols.length > 0 && protocols.length <= 5, "Invalid route length");
 
         uint256 chainId = block.chainid;
         (RouteEncoding enc) = abi.decode(routeData, (RouteEncoding));

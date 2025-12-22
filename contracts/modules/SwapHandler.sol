@@ -31,11 +31,9 @@ abstract contract SwapHandler {
         uint256 amountIn,
         bytes memory extraData
     ) internal returns (uint256 amountOut) {
-        require(routerOrPool != address(0), "Swap: router/pool=0");
-        require(tokenIn != address(0) && tokenOut != address(0), "Swap: token=0");
-        require(amountIn > 0, "Swap: amountIn=0");
-
-        _approveIfNeeded(tokenIn, routerOrPool, amountIn);
+        
+        // Safe approval - use forceApprove for OpenZeppelin v5
+        IERC20(tokenIn).forceApprove(routerOrPool, amountIn);
 
         if (protocol == PROTOCOL_UNIV2) {
             address[] memory path = new address[](2);
@@ -84,6 +82,9 @@ abstract contract SwapHandler {
             return amountOut;
         }
 
-        revert("Swap: bad protocol");
+        // Reset approval to zero for safety (USDT compatibility)
+        IERC20(tokenIn).forceApprove(routerOrPool, 0);
+        
+        return amountOut;
     }
 }

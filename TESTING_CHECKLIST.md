@@ -4,6 +4,12 @@
 
 This checklist covers all critical test scenarios for the mainnet safety improvements. Complete all tests on testnet before considering mainnet deployment.
 
+> **📋 Master Validation:** This checklist is part of the comprehensive [VALIDATION_CHECKLIST.md](VALIDATION_CHECKLIST.md) system validation framework.
+> 
+> **📋 Related Documents:**
+> - [GO_LIVE_CHECKLIST.md](GO_LIVE_CHECKLIST.md) - Full-scale deployment validation
+> - [CHECKLIST_VALIDATION_SUMMARY.md](CHECKLIST_VALIDATION_SUMMARY.md) - Executive validation summary
+
 ---
 
 ## 1. Configuration & Startup Tests

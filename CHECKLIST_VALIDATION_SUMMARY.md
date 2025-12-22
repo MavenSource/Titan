@@ -223,7 +223,9 @@ The go-live checklist is not only valid but is a highly accurate representation 
 
 ## References
 
+- **[VALIDATION_CHECKLIST.md](VALIDATION_CHECKLIST.md)** - Master validation checklist for comprehensive deployment readiness
 - **[GO_LIVE_CHECKLIST.md](GO_LIVE_CHECKLIST.md)** - Complete validation with 678 lines of detailed checks
+- **[TESTING_CHECKLIST.md](TESTING_CHECKLIST.md)** - Comprehensive testing procedures for all system components
 - **[OPERATIONS_GUIDE.md](OPERATIONS_GUIDE.md)** - Day-to-day operations manual
 - **[README.md](README.md)** - System overview
 - **[.env.example](.env.example)** - Configuration template with all parameters
