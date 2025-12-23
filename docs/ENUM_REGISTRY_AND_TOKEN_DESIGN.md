@@ -713,7 +713,7 @@ await executor.setDexRouter(137, 3, QUICKSWAP_ROUTER);
 await executor.setDexRouter(137, 1, UNIV3_ROUTER);
 await executor.setDexRouter(137, 5, CURVE_POOL);
 await executor.setToken(137, 1, 2, WMATIC_ADDRESS);  // TokenId 1, Type 2 (WRAPPED)
-await executor.setToken(137, 1, 0, USDC_ADDRESS);    // TokenId 1, Type 0 (CANONICAL)
+await executor.setToken(137, 5, 0, USDC_ADDRESS);    // TokenId 5, Type 0 (CANONICAL)
 await executor.setToken(137, 2, 0, USDT_ADDRESS);    // TokenId 2, Type 0 (CANONICAL)
 
 // Execute with same parameters
