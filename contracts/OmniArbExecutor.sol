@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 /*
-=============================================================================
 OmniArbExecutor.sol (Refactored with Custom Enum Logic)
 
 - Reuses system-wide SwapHandler module for all swap operations
@@ -12,7 +11,6 @@ OmniArbExecutor.sol (Refactored with Custom Enum Logic)
   * CHAIN identity (block.chainid -> Chain enum)
   * TOKEN registry with WRAPPED + BRIDGED variants
   * Optional registry-encoded routes (cleaner encoding)
-=============================================================================
 */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -267,6 +265,8 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
             dexRegistry[_chain][_dexs[i]] = _routers[i];
             emit RegistryUpdated("dex", uint256(_chain), uint256(_dexs[i]), _routers[i]);
         }
+
+        revert("token not set");
     }
     
     /* ========== HELPER FUNCTIONS ========== */
@@ -439,8 +439,8 @@ contract OmniArbExecutor is Ownable, ReentrancyGuard, SwapHandler, IFlashLoanSim
         require(protocols.length > 0, "Empty route");
         require(protocols.length <= 5, "Route too long");
 
-        uint256 currentAmount = inputAmount;
-        address currentToken = inputToken;
+        (address loanToken, uint256 loanAmount, bytes memory routeData) =
+            abi.decode(data, (address, uint256, bytes));
 
         // Execute each hop using SwapHandler (system-wide module)
         for (uint256 i = 0; i < protocols.length; i++) {
